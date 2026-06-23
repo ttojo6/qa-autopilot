@@ -38,6 +38,14 @@ corepack pnpm@9.12.0 -r run test     # 단위 테스트 30케이스 (triage 9 ·
 node apps/cli/dist/index.js run --config examples/actnote/qa.config.yaml
 ```
 
+### 승인 콘솔 (Phase 3 UI)
+
+```bash
+corepack pnpm@9.12.0 --filter @qa/dashboard dev    # http://localhost:3000
+```
+
+AI 수정 제안을 검토·승인한다. 인메모리 시드 데이터로 즉시 뜨며(운영은 Postgres로 교체), 승인 평가(self-approve/봇승인 차단·CODEOWNERS·정족수)가 UI에서 그대로 강제된다. **승인이 충족돼도 병합은 사람이 GitHub에서** — 콘솔에 merge 버튼은 없다.
+
 ---
 
 ## 내 프로젝트에 적용하기
@@ -114,7 +122,9 @@ qa-autopilot/
 │   └── adapters/
 │       ├── playwright-ts/   # Playwright JSON → 정규형
 │       └── pytest/          # pytest JSON → 정규형
-├── apps/cli/           # `qa run` 진입점, 어댑터 레지스트리, 설정 로더
+├── apps/
+│   ├── cli/            # `qa run` 진입점, 어댑터 레지스트리, 설정 로더
+│   └── dashboard/      # Next.js 16 승인 콘솔 (governance 백엔드 소비)
 ├── examples/actnote/   # 첫 적용 매니페스트
 ├── migrations/         # Postgres 초기 스키마 (거버넌스·감사 중심)
 └── docs/               # ARCHITECTURE.md, RISKS.md
@@ -127,7 +137,7 @@ qa-autopilot/
 | ① 테스트 설계/생성 | `authoring` | 예정 |
 | ② 통합 실행 | `core` + `adapters/*` | ✅ 실 spawn/parse + runCase + Budget |
 | ③ 1차 실패 분석 | `triage` | ✅ 휴리스틱/LLM 분류 + confidence 라우팅 |
-| ④ 사람 최종 확인 | `governance` | ✅ 감사 + 승인 평가 (콘솔 UI 예정) |
+| ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 승인 콘솔 |
 | ⑤ 자가 치유 | `remediation` | ✅ 증빙·게이트·PR (생성기/CI 실배선 예정) |
 
 `[~]` Phase 1 노이즈 격리는 Signal Gate 2단계 + Quarantine TTL 재평가까지 동작(격리 영속화는 콘솔 작업 시).

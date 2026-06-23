@@ -8,6 +8,12 @@ build/
 *.tsbuildinfo
 .turbo/
 
+# --- Next.js ---
+.next/
+out/
+next-env.d.ts
+.vercel/
+
 # --- Test / coverage ---
 coverage/
 *.lcov
