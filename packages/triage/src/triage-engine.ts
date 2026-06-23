@@ -35,6 +35,11 @@ export interface TriageEngineOptions {
    * (충분히 확신하는 휴리스틱 결과는 그대로 채택해 비용 절감.)
    */
   readonly escalateBelow?: number;
+  /**
+   * STOP 트리거(R1) 발동 시 true. 모든 실패를 confidence 무관 "human" 레인으로 강등하고
+   * LLM escalation을 생략한다 — override 폭증 시 자동 라우팅을 끄는 안전장치.
+   */
+  readonly forceHuman?: boolean;
 }
 
 export class TriageEngine {
@@ -43,6 +48,7 @@ export class TriageEngine {
   private readonly historyFor: (sig: string) => ClusterHistory | undefined;
   private readonly maskPII: (text: string) => string;
   private readonly escalateBelow: number;
+  private readonly forceHuman: boolean;
 
   constructor(deps: TriageEngineDeps = {}, opts: TriageEngineOptions = {}) {
     this.heuristic = deps.heuristic ?? new HeuristicClassifier();
@@ -50,6 +56,7 @@ export class TriageEngine {
     this.historyFor = deps.historyFor ?? (() => undefined);
     this.maskPII = deps.maskPII ?? ((t) => t);
     this.escalateBelow = opts.escalateBelow ?? 0.7;
+    this.forceHuman = opts.forceHuman ?? false;
   }
 
   /** 한 번의 실행 결과를 분류·라우팅한다. */
@@ -68,6 +75,19 @@ export class TriageEngine {
       };
 
       let classification = await this.heuristic.classify(input);
+
+      // R1 STOP: 자동 라우팅 강등. 분류는 기록하되 무조건 사람 큐로.
+      if (this.forceHuman) {
+        verdicts.push({
+          signature: cluster.signature,
+          failureClass: classification.failureClass,
+          confidence: classification.confidence,
+          lane: "human",
+          rationale: `[forceHuman] ${classification.rationale}`,
+          source: classification.source,
+        });
+        continue;
+      }
 
       // 휴리스틱이 애매하고 LLM이 있으면 escalation.
       if (classification.confidence < this.escalateBelow && this.llm) {

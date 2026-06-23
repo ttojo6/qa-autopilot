@@ -32,6 +32,9 @@ importers:
       '@qa/governance':
         specifier: workspace:*
         version: link:../../packages/governance
+      '@qa/metrics':
+        specifier: workspace:*
+        version: link:../../packages/metrics
       '@qa/remediation':
         specifier: workspace:*
         version: link:../../packages/remediation
@@ -103,6 +106,12 @@ importers:
       '@types/pg':
         specifier: ^8.11.0
         version: 8.20.0
+
+  packages/metrics:
+    dependencies:
+      '@qa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/remediation:
     dependencies:

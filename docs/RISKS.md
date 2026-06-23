@@ -115,3 +115,17 @@
 - **기본값은 항상 사람에게:** 애매하면 자동 처리하지 않는다.
 - **모든 자동 행위는 audit_log에 불변 기록:** 사후 추적 가능해야 한다.
 - **STOP 트리거를 미리 정의:** 지표가 임계를 넘으면 자동화를 단계적으로 끈다.
+
+## STOP 트리거 구현 현황
+
+R1·R2·R4의 STOP 트리거는 `@qa/metrics`에 코드화되어 CLI가 매 사이클 평가·적용한다:
+
+| 위험 | 지표 | 임계 | 발동 시 제어 | 적용 위치 |
+|---|---|---|---|---|
+| R1 | overrideRate | > 25% | `forceHumanTriage` | `TriageEngine({forceHuman})` — 전건 사람 강등 |
+| R2 | rollbackRate | > 15% | `disableAppSourceRemediation` | `remediate({disableAppSource})` — app_source 제안 생략 |
+| R4 | quarantineRatio | > 40% | `reviewFlakySignals` | (경고) flakySignals 재검토 |
+
+- 누계는 `artifacts/metrics.json`(또는 향후 DB). 사람 피드백은 `qa feedback`로 누적.
+- `minSamples`(기본 20)로 소표본 오발 방지. **과거 성과가 현재 사이클을 게이팅**한다.
+- R3(재시도 비용)는 별도로 `core/budget.ts`가 사이클 내에서 직접 차단.

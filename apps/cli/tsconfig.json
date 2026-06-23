@@ -10,6 +10,7 @@
     { "path": "../../packages/triage" },
     { "path": "../../packages/remediation" },
     { "path": "../../packages/governance" },
+    { "path": "../../packages/metrics" },
     { "path": "../../packages/adapters/playwright-ts" },
     { "path": "../../packages/adapters/pytest" }
   ],

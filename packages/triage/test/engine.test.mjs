@@ -52,6 +52,16 @@ test("engine escalates to LLM when heuristic is uncertain", async () => {
   assert.equal(verdicts[0].source, "fake-llm");
 });
 
+test("forceHuman routes every cluster to human regardless of confidence (R1 STOP)", async () => {
+  let llmCalled = false;
+  const llm = { async classify() { llmCalled = true; return { failureClass: "PRODUCT_BUG", confidence: 0.99, rationale: "x", source: "fake" }; } };
+  const engine = new TriageEngine({ llm }, { forceHuman: true });
+  const verdicts = await engine.triage([fail("a", "timeout", "Timeout 30000ms exceeded")], config);
+  assert.equal(verdicts[0].lane, "human");
+  assert.ok(!llmCalled, "forceHuman skips LLM escalation");
+  assert.match(verdicts[0].rationale, /forceHuman/);
+});
+
 test("engine skips LLM when heuristic is confident", async () => {
   let llmCalled = false;
   const llm = {

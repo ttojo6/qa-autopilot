@@ -39,6 +39,19 @@ test("only signal verdicts become proposals; failureClass attached", async () =>
   assert.equal(out[0].status, "needs_human_pr", "app_source without prPort never auto-opens");
 });
 
+test("disableAppSource skips app_source verdicts (R2 STOP)", async () => {
+  const f1 = fail("c1", "e2e", "assertion", "expected 1 got 2");
+  const verdicts = [
+    { signature: signatureOf(f1), failureClass: "PRODUCT_BUG", confidence: 0.9, lane: "signal", rationale: "r", source: "t" },
+  ];
+  const out = await remediate({
+    config, projectRoot: ".", adapters: {}, failures: [f1], verdicts, enablePr: false,
+    disableAppSource: true,
+    overrides: { generator: okGen, verifier: passVerifier },
+  });
+  assert.equal(out.length, 0, "app_source proposal suppressed when disableAppSource is on");
+});
+
 test("scope=none verdicts produce nothing", async () => {
   const out = await remediate({
     config, projectRoot: ".", adapters: {}, failures: [], verdicts: [

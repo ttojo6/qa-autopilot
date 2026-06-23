@@ -14,6 +14,7 @@ import {
   LlmProposalGenerator,
   GitWorktreeVerifier,
   GhPrPort,
+  scopeFor,
   type ProposalGenerator,
   type FixVerifier,
   type PrPort,
@@ -40,6 +41,8 @@ export interface RemediateDeps {
   readonly failures: readonly TestResult[];
   readonly verdicts: readonly TriageVerdict[];
   readonly enablePr: boolean;
+  /** R2 STOP 트리거 발동 시 true → app_source 수정 제안을 생략한다. */
+  readonly disableAppSource?: boolean;
   /** 테스트용 포트 오버라이드. */
   readonly overrides?: { generator?: ProposalGenerator; verifier?: FixVerifier; prPort?: PrPort };
 }
@@ -71,6 +74,7 @@ export async function remediate(deps: RemediateDeps): Promise<EnrichedProposal[]
   const out: EnrichedProposal[] = [];
   for (const v of deps.verdicts) {
     if (v.lane !== "signal") continue; // 원칙 A: signal만 Remediation 진입
+    if (deps.disableAppSource && scopeFor(v.failureClass) === "app_source") continue; // R2 STOP
     const proposal = await engine.propose(v, deps.config.remediation);
     if (proposal) out.push({ ...proposal, failureClass: v.failureClass });
   }

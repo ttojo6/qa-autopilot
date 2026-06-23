@@ -79,6 +79,26 @@ node apps/cli/dist/index.js run --config <path> --fail-on-blocking   # blocking>
 - **build-test** — 설치·빌드·전체 단위 테스트(pg 통합은 `DATABASE_URL` 없어 자동 skip) + ci-smoke 게이트 데모(exit 0).
 - **integration-postgres** — Postgres 서비스 + `db:migrate` + **라이브 pg 왕복 테스트**(upsert→봇승인 무시→정족수 충족→approved+감사). 로컬에선 skip, CI에서만 실행.
 
+### 메타 지표 / STOP 트리거 (자동화 자가 제어)
+
+자동화 자체의 건강도를 누계로 추적해(`artifacts/metrics.json`), 임계 초과 시 자동화를 단계적으로 끈다 — **과거 성과가 현재 사이클을 게이팅**한다. (RISKS.md의 STOP 트리거를 코드화: `@qa/metrics`)
+
+| 위험 | 지표 | 임계 | 발동 시 제어 |
+|---|---|---|---|
+| R1 | override rate (사람이 AI 분류 뒤집은 비율) | > 25% | `forceHumanTriage` — 전건 사람 큐로 강등 |
+| R2 | rollback rate (병합 후 롤백 비율) | > 15% | `disableAppSourceRemediation` — 앱 소스 자동 수정 중단 |
+| R4 | quarantine 비율 | > 40% | `reviewFlakySignals` — flakySignals 재검토 |
+
+`minSamples`(기본 20)로 소표본 오발을 막는다. 사람 피드백은 `qa feedback`로 누적한다(트리거 분자):
+
+```bash
+qa feedback --config <path> --override 1     # 사람이 AI 분류를 뒤집음 (R1)
+qa feedback --config <path> --merged 1        # remediation PR 병합됨 (R2 분모)
+qa feedback --config <path> --rolled-back 1   # 병합 후 롤백됨 (R2)
+```
+
+`qa run` 출력의 `safety:` 줄과 `⚠ STOP` 항목으로 현재 발동 상태를 확인한다.
+
 ---
 
 ## 내 프로젝트에 적용하기
@@ -152,6 +172,7 @@ qa-autopilot/
 │   ├── triage/         # 클러스터링 + 휴리스틱/LLM(Claude) 분류 + confidence 라우팅
 │   ├── remediation/    # 범위 분류 + git worktree 회귀 증빙 + 게이트 + gh PR 포트(merge 없음)
 │   ├── governance/     # append-only 감사 + 승인 평가 + 인메모리/Postgres 스토어(@qa/governance/pg)
+│   ├── metrics/        # 메타 지표 + STOP 트리거(R1/R2/R4) — 과거 성과가 현재 자동화를 게이팅
 │   └── adapters/
 │       ├── playwright-ts/   # Playwright JSON → 정규형
 │       └── pytest/          # pytest JSON → 정규형
