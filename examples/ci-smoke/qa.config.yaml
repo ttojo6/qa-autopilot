@@ -1,0 +1,32 @@
+# CI 게이트 데모용 — 외부 도구(playwright/pytest) 없이 빈 결과를 내는 무해한 러너.
+# 실패 0 → release-blocking 0 → `--fail-on-blocking` 에서도 exit 0. 게이트 배선만 검증.
+project: ci-smoke
+
+runners:
+  - id: smoke
+    adapter: playwright-ts
+    workdir: .
+    command: "node -e \"console.log('{}')\"" # stdout '{}' → spec 없음 → 0 results
+
+retry:
+  maxRetries: 0
+  backoffMs: 0
+  retryableErrors: []
+
+budget:
+  maxCostUsd: 1.0
+  maxWallMs: 60000
+  maxRetries: 5
+  costPerRerunUsd: 0.01
+
+triage:
+  classes: [PRODUCT_BUG, TEST_BUG, FLAKY, ENV_INFRA, DATA, MODEL_API]
+  flakySignals: ["timeout"]
+  confidenceThreshold: 0.75
+
+remediation:
+  testOnly: { autoPr: false, approval: 1 }
+  appSource: { autoPr: false, approval: 2, codeownersRequired: true }
+
+governance:
+  releaseGateExclude: [FLAKY, ENV_INFRA]

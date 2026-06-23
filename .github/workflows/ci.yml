@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r run build
+      - name: Unit tests (pg-integration auto-skips without DATABASE_URL)
+        run: pnpm -r run test
+      - name: Release gate (demo — empty result, must pass)
+        run: node apps/cli/dist/index.js run --config examples/ci-smoke/qa.config.yaml --fail-on-blocking
+
+  integration-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qa
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/qa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r run build
+      - name: Apply migrations
+        run: pnpm --filter @qa/governance run db:migrate
+      - name: Governance tests incl. live pg round-trip
+        run: pnpm --filter @qa/governance run test

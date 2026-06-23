@@ -16,14 +16,26 @@ const ADAPTERS: Record<string, RunnerAdapter> = {
   pytest: pytest(),
 };
 
-function parseArgs(argv: readonly string[]): { command: string; config: string; autoPr: boolean } {
+interface Args {
+  command: string;
+  config: string;
+  autoPr: boolean;
+  failOnBlocking: boolean;
+}
+
+function parseArgs(argv: readonly string[]): Args {
   const command = argv[0] ?? "help";
   const ci = argv.indexOf("--config");
   const config = ci >= 0 ? (argv[ci + 1] ?? "") : "qa.config.yaml";
-  return { command, config, autoPr: argv.includes("--auto-pr") };
+  return {
+    command,
+    config,
+    autoPr: argv.includes("--auto-pr"),
+    failOnBlocking: argv.includes("--fail-on-blocking"),
+  };
 }
 
-async function cmdRun(configPath: string, autoPr: boolean): Promise<void> {
+async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boolean): Promise<void> {
   const abs = resolve(process.cwd(), configPath);
   const config = loadConfig(abs);
   const projectRoot = dirname(abs);
@@ -82,17 +94,24 @@ async function cmdRun(configPath: string, autoPr: boolean): Promise<void> {
       `remediation: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8 generator" : "null generator (set ANTHROPIC_API_KEY)"}${autoPr ? " · auto-PR ON" : " · auto-PR off"}`,
     ].join("\n")
   );
+
+  // 릴리즈 게이트: CI에서 머지를 막는 종료코드. 노이즈는 이미 제외돼 있으므로
+  // 여기서 막히는 것은 진짜 결함(signal) 또는 저신뢰(human) 클러스터뿐이다.
+  if (failOnBlocking && blocking > 0) {
+    console.error(`\n✖ release gate: ${blocking} blocking cluster(s) — failing CI (exit 2)`);
+    process.exitCode = 2;
+  }
 }
 
 async function main(): Promise<void> {
-  const { command, config, autoPr } = parseArgs(process.argv.slice(2));
+  const { command, config, autoPr, failOnBlocking } = parseArgs(process.argv.slice(2));
   switch (command) {
     case "run":
-      await cmdRun(config, autoPr);
+      await cmdRun(config, autoPr, failOnBlocking);
       break;
     default:
       console.log(
-        "qa-autopilot\n\nUsage:\n  qa run --config <path> [--auto-pr]   실행→Triage→Remediation 한 사이클\n"
+        "qa-autopilot\n\nUsage:\n  qa run --config <path> [--auto-pr] [--fail-on-blocking]\n    실행→Triage→Remediation 한 사이클. --fail-on-blocking 시 release-blocking 있으면 exit 2 (CI 게이트).\n"
       );
   }
 }
