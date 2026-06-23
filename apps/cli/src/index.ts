@@ -8,7 +8,7 @@ import { createAdapter as playwright } from "@qa/adapter-playwright-ts";
 import { createAdapter as pytest } from "@qa/adapter-pytest";
 import { loadConfig } from "./config-loader.js";
 import { remediate } from "./remediate.js";
-import { writeProposals } from "./proposals-io.js";
+import { persistProposals } from "./persist.js";
 
 /** 등록된 어댑터 레지스트리. 새 러너는 여기 한 줄로 추가된다(범용성). */
 const ADAPTERS: Record<string, RunnerAdapter> = {
@@ -62,7 +62,7 @@ async function cmdRun(configPath: string, autoPr: boolean): Promise<void> {
     verdicts,
     enablePr: autoPr,
   });
-  const propFile = writeProposals(projectRoot, proposals);
+  const persisted = await persistProposals(projectRoot, proposals);
   const byStatus: Record<string, number> = {};
   for (const p of proposals) byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
   const statusLine = Object.entries(byStatus).map(([k, v]) => `${k}:${v}`).join("  ") || "(none)";
@@ -76,7 +76,7 @@ async function cmdRun(configPath: string, autoPr: boolean): Promise<void> {
       `  signal: ${counts.signal}  human(review): ${counts.human}  quarantine: ${counts.quarantine}  retry: ${counts.retry}`,
       `release-blocking clusters: ${blocking}`,
       `remediation proposals: ${proposals.length}  [${statusLine}]`,
-      `  → ${propFile}  (콘솔: QA_PROPOSALS_FILE 로 지정)`,
+      `  → ${persisted.sink}: ${persisted.location}${persisted.sink === "file" ? "  (콘솔: QA_PROPOSALS_FILE 로 지정)" : "  (콘솔: 동일 DATABASE_URL)"}`,
       `retries used: ${b.retries}  cost: $${b.costUsd.toFixed(2)}  elapsed: ${(b.elapsedMs / 1000).toFixed(1)}s${result.budgetExhausted ? "  [BUDGET EXHAUSTED]" : ""}`,
       `triage source: ${llm ? "heuristic + claude" : "heuristic only (set ANTHROPIC_API_KEY for LLM escalation)"}`,
       `remediation: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8 generator" : "null generator (set ANTHROPIC_API_KEY)"}${autoPr ? " · auto-PR ON" : " · auto-PR off"}`,

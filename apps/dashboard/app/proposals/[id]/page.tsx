@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getView, getApprovals } from "../../../lib/data";
 import { evaluateApprovals } from "@qa/governance";
-import { stores } from "../../../lib/store";
 import { decide } from "../../actions";
 import { DiffBlock } from "./diff";
 
@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 
 export default async function ProposalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params; // Next 16: params는 Promise
-  const proposal = await stores.proposals.get(id);
-  const view = stores.views.get(id);
-  if (!proposal || !view) notFound();
+  const view = await getView(id);
+  if (!view) notFound();
 
-  const approvals = await stores.approvals.forProposal(id);
+  const proposal = view; // ProposalView는 ProposalRecord의 상위 집합
+  const approvals = await getApprovals(id);
   const evalResult = evaluateApprovals(proposal, approvals);
 
   // app_source는 자동 PR 금지 — 항상 사람 PR. test_only는 증빙 통과 시 자동 PR 후보.

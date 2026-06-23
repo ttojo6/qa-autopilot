@@ -52,7 +52,20 @@ QA_PROPOSALS_FILE=examples/actnote/artifacts/proposals.json \
 
 AI 수정 제안을 검토·승인한다. 승인 평가(self-approve/봇승인 차단·CODEOWNERS·정족수)가 UI에서 그대로 강제된다. **승인이 충족돼도 병합은 사람이 GitHub에서** — 콘솔에 merge 버튼은 없다.
 
-> 전체 루프: `qa run` → Triage(signal) → RemediationEngine(opus 생성 + worktree 증빙 + 게이트) → `proposals.json` → 콘솔 검토·승인 → 사람이 GitHub 병합.
+> 전체 루프: `qa run` → Triage(signal) → RemediationEngine(opus 생성 + worktree 증빙 + 게이트) → 제안 영속화 → 콘솔 검토·승인 → 사람이 GitHub 병합.
+
+### 영속화 (Postgres, 선택)
+
+`DATABASE_URL`이 설정되면 CLI는 제안을 DB에 적재하고 콘솔은 **같은 DB**에서 읽는다(핸드오프 파일 불필요). 미설정 시 파일/시드로 동작.
+
+```bash
+docker compose up -d                                   # 로컬 Postgres (포트 5433)
+export DATABASE_URL=postgres://qa:qa@localhost:5433/qa
+corepack pnpm@9.12.0 --filter @qa/governance db:migrate # migrations/*.sql 순서 적용
+# 이후 같은 DATABASE_URL 로 `qa run` 과 콘솔(dev) 을 띄우면 제안이 DB로 흐른다
+```
+
+스키마: `migrations/001`(runs/results/clusters/triage) + `migrations/002`(proposals/approvals/audit_log, 거버넌스 권위 테이블). pg 어댑터는 `Queryable` 포트 뒤에 있어 가짜 클라이언트로 SQL·매핑이 단위 테스트된다.
 
 ---
 
@@ -126,7 +139,7 @@ qa-autopilot/
 │   ├── core/           # Orchestrator + Retry Lane + Budget(R3) + Signal Gate + Quarantine
 │   ├── triage/         # 클러스터링 + 휴리스틱/LLM(Claude) 분류 + confidence 라우팅
 │   ├── remediation/    # 범위 분류 + git worktree 회귀 증빙 + 게이트 + gh PR 포트(merge 없음)
-│   ├── governance/     # append-only 감사 + 승인 평가(self-approve/codeowners/정족수) + 스토어
+│   ├── governance/     # append-only 감사 + 승인 평가 + 인메모리/Postgres 스토어(@qa/governance/pg)
 │   └── adapters/
 │       ├── playwright-ts/   # Playwright JSON → 정규형
 │       └── pytest/          # pytest JSON → 정규형
@@ -145,7 +158,7 @@ qa-autopilot/
 | ① 테스트 설계/생성 | `authoring` | 예정 |
 | ② 통합 실행 | `core` + `adapters/*` | ✅ 실 spawn/parse + runCase + Budget |
 | ③ 1차 실패 분석 | `triage` | ✅ 휴리스틱/LLM 분류 + confidence 라우팅 |
-| ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 승인 콘솔 |
+| ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 콘솔 + **Postgres 영속화** |
 | ⑤ 자가 치유 | `remediation` + `cli` | ✅ CLI 실배선 — signal→생성·worktree 증빙·게이트·PR→콘솔 핸드오프 |
 
 `[~]` Phase 1 노이즈 격리는 Signal Gate 2단계 + Quarantine TTL 재평가까지 동작(격리 영속화는 콘솔 작업 시).

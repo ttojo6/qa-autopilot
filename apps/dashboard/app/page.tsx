@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { evaluateApprovals } from "@qa/governance";
-import { stores } from "../lib/store";
+import { listViews, getApprovals, backend } from "../lib/data";
 
-export const dynamic = "force-dynamic"; // 인메모리 상태 변경을 매 요청 반영
+export const dynamic = "force-dynamic"; // 상태 변경을 매 요청 반영
 
 export default async function HomePage() {
-  const proposals = await stores.proposals.list();
+  const views = await listViews();
   const rows = await Promise.all(
-    proposals.map(async (p) => {
-      const approvals = await stores.approvals.forProposal(p.id);
-      const evalResult = evaluateApprovals(p, approvals);
-      return { p, approvals: approvals.length, satisfied: evalResult.satisfied };
+    views.map(async (v) => {
+      const approvals = await getApprovals(v.id);
+      const evalResult = evaluateApprovals(v, approvals);
+      return { v, approvals: approvals.length, satisfied: evalResult.satisfied };
     })
   );
 
@@ -31,32 +31,30 @@ export default async function HomePage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ p, approvals, satisfied }) => {
-              const view = stores.views.get(p.id);
-              return (
-                <tr key={p.id}>
-                  <td>
-                    <Link href={`/proposals/${p.id}`}>{view?.summary ?? p.id}</Link>
-                    <div className="muted" style={{ fontSize: "0.78rem" }}>{p.signature}</div>
-                  </td>
-                  <td><span className={`badge ${p.scope}`}>{p.scope}</span></td>
-                  <td className={view?.proofStatus === "passed" ? "pass" : "fail"}>
-                    {view?.proofStatus ?? "?"}
-                  </td>
-                  <td>
-                    {approvals}/{p.requiredApprovals}
-                    {satisfied ? <span className="pass"> ✓</span> : null}
-                  </td>
-                  <td><span className={`badge ${p.status}`}>{p.status}</span></td>
-                </tr>
-              );
-            })}
+            {rows.map(({ v, approvals, satisfied }) => (
+              <tr key={v.id}>
+                <td>
+                  <Link href={`/proposals/${v.id}`}>{v.summary || v.id}</Link>
+                  <div className="muted" style={{ fontSize: "0.78rem" }}>{v.signature}</div>
+                </td>
+                <td><span className={`badge ${v.scope}`}>{v.scope}</span></td>
+                <td className={v.proofStatus === "passed" ? "pass" : "fail"}>{v.proofStatus}</td>
+                <td>
+                  {approvals}/{v.requiredApprovals}
+                  {satisfied ? <span className="pass"> ✓</span> : null}
+                </td>
+                <td><span className={`badge ${v.status}`}>{v.status}</span></td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
 
       <p className="muted" style={{ fontSize: "0.8rem" }}>
-        인메모리 시드 데이터. 운영에서는 동일 포트를 Postgres(migrations/001)로 교체.
+        backend: <b>{backend}</b>
+        {backend === "memory"
+          ? " — 시드/핸드오프(QA_PROPOSALS_FILE). DATABASE_URL 설정 시 Postgres 공유."
+          : " — CLI와 동일 DATABASE_URL 공유."}
       </p>
     </main>
   );

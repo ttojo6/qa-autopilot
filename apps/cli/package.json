@@ -17,6 +17,7 @@
     "@qa/shared": "workspace:*",
     "@qa/triage": "workspace:*",
     "@qa/remediation": "workspace:*",
+    "@qa/governance": "workspace:*",
     "@qa/adapter-playwright-ts": "workspace:*",
     "@qa/adapter-pytest": "workspace:*",
     "yaml": "^2.5.0"

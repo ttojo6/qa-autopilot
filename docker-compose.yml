@@ -1,0 +1,16 @@
+# 로컬 Postgres — 거버넌스 영속화 개발용.
+#   docker compose up -d
+#   DATABASE_URL=postgres://qa:qa@localhost:5433/qa node packages/governance/scripts/migrate.mjs
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: qa
+      POSTGRES_PASSWORD: qa
+      POSTGRES_DB: qa
+    ports:
+      - "5433:5432"
+    volumes:
+      - qa_pg:/var/lib/postgresql/data
+volumes:
+  qa_pg:

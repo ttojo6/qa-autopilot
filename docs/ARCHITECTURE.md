@@ -43,7 +43,7 @@ runners(adapters) ──► RunReport(정규형) ──► Signal Gate ──┬
 | `@qa/adapter-pytest` | pytest JSON → 정규형 (실 spawn/parse + `runCase`) |
 | `@qa/triage` | 클러스터링 + 휴리스틱/LLM(Claude) 분류 + confidence 라우팅 |
 | `@qa/remediation` | 수정 범위 분류 + git worktree 회귀 증빙(`FixVerifier`) + 거버넌스 게이트 + gh PR 포트(merge 없음) |
-| `@qa/governance` | append-only 감사(`AuditLog`) + 승인 평가(self-approve/codeowners/정족수) + 제안/승인 스토어 |
+| `@qa/governance` | append-only 감사(`AuditLog`) + 승인 평가(self-approve/codeowners/정족수) + 인메모리/Postgres 스토어(`@qa/governance/pg`, `Queryable` 포트) |
 | `@qa/cli` | `qa run` 진입점, 어댑터 레지스트리, 설정 로더, Triage 조합 |
 | (예정) `apps/dashboard` | Next.js 승인 콘솔 (governance 백엔드 소비) |
 
