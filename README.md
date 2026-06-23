@@ -32,19 +32,27 @@ corepack pnpm@9.12.0 -r run test     # 단위 테스트 30케이스 (triage 9 ·
 
 > Turbo는 글로벌 pnpm 바이너리를 찾으므로 corepack 환경에선 위처럼 `pnpm -r run`을 쓴다. 글로벌 pnpm이 있으면 `pnpm build` / `pnpm build:turbo` 도 동작한다.
 
-### 한 사이클 실행
+### 한 사이클 실행 (실행 → Triage → Remediation)
 
 ```bash
-node apps/cli/dist/index.js run --config examples/actnote/qa.config.yaml
+node apps/cli/dist/index.js run --config examples/actnote/qa.config.yaml [--auto-pr]
 ```
+
+`signal`로 분류된 진짜 결함만 RemediationEngine에 들어가 수정 제안 → **git worktree 회귀 증빙** → 게이트를 거친다. 결과는 `artifacts/proposals.json`으로 내보내진다(콘솔 핸드오프).
+- `ANTHROPIC_API_KEY` 없으면 Null 생성기(가짜 수정 안 만듦), 있으면 `claude-opus-4-8` 생성기.
+- `--auto-pr` 없으면 PR을 열지 않는다(test_only도 사람 대기). app_source는 플래그와 무관하게 자동 PR **금지**.
 
 ### 승인 콘솔 (Phase 3 UI)
 
 ```bash
-corepack pnpm@9.12.0 --filter @qa/dashboard dev    # http://localhost:3000
+# CLI가 만든 실제 제안을 띄우려면 핸드오프 파일을 가리킨다 (없으면 시드 샘플로 동작)
+QA_PROPOSALS_FILE=examples/actnote/artifacts/proposals.json \
+  corepack pnpm@9.12.0 --filter @qa/dashboard dev    # http://localhost:3000
 ```
 
-AI 수정 제안을 검토·승인한다. 인메모리 시드 데이터로 즉시 뜨며(운영은 Postgres로 교체), 승인 평가(self-approve/봇승인 차단·CODEOWNERS·정족수)가 UI에서 그대로 강제된다. **승인이 충족돼도 병합은 사람이 GitHub에서** — 콘솔에 merge 버튼은 없다.
+AI 수정 제안을 검토·승인한다. 승인 평가(self-approve/봇승인 차단·CODEOWNERS·정족수)가 UI에서 그대로 강제된다. **승인이 충족돼도 병합은 사람이 GitHub에서** — 콘솔에 merge 버튼은 없다.
+
+> 전체 루프: `qa run` → Triage(signal) → RemediationEngine(opus 생성 + worktree 증빙 + 게이트) → `proposals.json` → 콘솔 검토·승인 → 사람이 GitHub 병합.
 
 ---
 
@@ -138,7 +146,7 @@ qa-autopilot/
 | ② 통합 실행 | `core` + `adapters/*` | ✅ 실 spawn/parse + runCase + Budget |
 | ③ 1차 실패 분석 | `triage` | ✅ 휴리스틱/LLM 분류 + confidence 라우팅 |
 | ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 승인 콘솔 |
-| ⑤ 자가 치유 | `remediation` | ✅ 증빙·게이트·PR (생성기/CI 실배선 예정) |
+| ⑤ 자가 치유 | `remediation` + `cli` | ✅ CLI 실배선 — signal→생성·worktree 증빙·게이트·PR→콘솔 핸드오프 |
 
 `[~]` Phase 1 노이즈 격리는 Signal Gate 2단계 + Quarantine TTL 재평가까지 동작(격리 영속화는 콘솔 작업 시).
 

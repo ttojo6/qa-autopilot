@@ -7,6 +7,8 @@ import type { RunnerAdapter, AdapterContext, Lane } from "@qa/shared";
 import { createAdapter as playwright } from "@qa/adapter-playwright-ts";
 import { createAdapter as pytest } from "@qa/adapter-pytest";
 import { loadConfig } from "./config-loader.js";
+import { remediate } from "./remediate.js";
+import { writeProposals } from "./proposals-io.js";
 
 /** 등록된 어댑터 레지스트리. 새 러너는 여기 한 줄로 추가된다(범용성). */
 const ADAPTERS: Record<string, RunnerAdapter> = {
@@ -14,14 +16,14 @@ const ADAPTERS: Record<string, RunnerAdapter> = {
   pytest: pytest(),
 };
 
-function parseArgs(argv: readonly string[]): { command: string; config: string } {
+function parseArgs(argv: readonly string[]): { command: string; config: string; autoPr: boolean } {
   const command = argv[0] ?? "help";
   const ci = argv.indexOf("--config");
   const config = ci >= 0 ? (argv[ci + 1] ?? "") : "qa.config.yaml";
-  return { command, config };
+  return { command, config, autoPr: argv.includes("--auto-pr") };
 }
 
-async function cmdRun(configPath: string): Promise<void> {
+async function cmdRun(configPath: string, autoPr: boolean): Promise<void> {
   const abs = resolve(process.cwd(), configPath);
   const config = loadConfig(abs);
   const projectRoot = dirname(abs);
@@ -51,6 +53,20 @@ async function cmdRun(configPath: string): Promise<void> {
     if (decision.releaseBlocking) blocking += 1;
   }
 
+  // ⑤ Remediation: signal 판정만 수정 제안으로. (키 없으면 Null 생성기로 안전하게 no-op)
+  const proposals = await remediate({
+    config,
+    projectRoot,
+    adapters: ADAPTERS,
+    failures,
+    verdicts,
+    enablePr: autoPr,
+  });
+  const propFile = writeProposals(projectRoot, proposals);
+  const byStatus: Record<string, number> = {};
+  for (const p of proposals) byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
+  const statusLine = Object.entries(byStatus).map(([k, v]) => `${k}:${v}`).join("  ") || "(none)";
+
   const b = result.budget;
   console.log(
     [
@@ -59,20 +75,25 @@ async function cmdRun(configPath: string): Promise<void> {
       `unrecovered failures: ${failures.length}  (clusters: ${verdicts.length})`,
       `  signal: ${counts.signal}  human(review): ${counts.human}  quarantine: ${counts.quarantine}  retry: ${counts.retry}`,
       `release-blocking clusters: ${blocking}`,
+      `remediation proposals: ${proposals.length}  [${statusLine}]`,
+      `  → ${propFile}  (콘솔: QA_PROPOSALS_FILE 로 지정)`,
       `retries used: ${b.retries}  cost: $${b.costUsd.toFixed(2)}  elapsed: ${(b.elapsedMs / 1000).toFixed(1)}s${result.budgetExhausted ? "  [BUDGET EXHAUSTED]" : ""}`,
       `triage source: ${llm ? "heuristic + claude" : "heuristic only (set ANTHROPIC_API_KEY for LLM escalation)"}`,
+      `remediation: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8 generator" : "null generator (set ANTHROPIC_API_KEY)"}${autoPr ? " · auto-PR ON" : " · auto-PR off"}`,
     ].join("\n")
   );
 }
 
 async function main(): Promise<void> {
-  const { command, config } = parseArgs(process.argv.slice(2));
+  const { command, config, autoPr } = parseArgs(process.argv.slice(2));
   switch (command) {
     case "run":
-      await cmdRun(config);
+      await cmdRun(config, autoPr);
       break;
     default:
-      console.log("qa-autopilot\n\nUsage:\n  qa run --config <path>   한 사이클 실행 (Phase 0)\n");
+      console.log(
+        "qa-autopilot\n\nUsage:\n  qa run --config <path> [--auto-pr]   실행→Triage→Remediation 한 사이클\n"
+      );
   }
 }
 

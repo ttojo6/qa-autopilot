@@ -9,12 +9,14 @@
   "scripts": {
     "build": "tsc -b",
     "dev": "node --experimental-strip-types src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.mjs\""
   },
   "dependencies": {
     "@qa/core": "workspace:*",
     "@qa/shared": "workspace:*",
     "@qa/triage": "workspace:*",
+    "@qa/remediation": "workspace:*",
     "@qa/adapter-playwright-ts": "workspace:*",
     "@qa/adapter-pytest": "workspace:*",
     "yaml": "^2.5.0"

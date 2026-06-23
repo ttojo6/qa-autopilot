@@ -1,12 +1,13 @@
 /**
  * 콘솔용 거버넌스 스토어 (서버 전용).
  *
- * 데모를 위해 인메모리 스토어를 시드한다. 운영에서는 동일 포트(ProposalStore/ApprovalStore/AuditLog)를
- * Postgres 구현(migrations/001_init.sql)으로 교체하면 콘솔 코드는 그대로 동작한다.
- *
- * Next dev의 HMR에도 상태가 유지되도록 globalThis에 싱글턴을 둔다.
+ * 데이터 출처(우선순위):
+ *  1) QA_PROPOSALS_FILE 환경변수가 가리키는 CLI 핸드오프 JSON (artifacts/proposals.json)
+ *  2) 없으면 인메모리 시드 샘플
+ * 운영에서는 동일 포트(ProposalStore/ApprovalStore/AuditLog)를 Postgres 구현으로 교체.
  */
 
+import { existsSync, readFileSync } from "node:fs";
 import {
   InMemoryProposalStore,
   InMemoryApprovalStore,
@@ -14,7 +15,6 @@ import {
   type ProposalRecord,
 } from "@qa/governance";
 
-/** 화면 표시용 부가 정보(diff·증빙 등)를 담은 뷰 모델. */
 export interface ProposalView extends ProposalRecord {
   readonly summary: string;
   readonly diff: string;
@@ -31,15 +31,60 @@ export interface Stores {
   views: Map<string, ProposalView>;
 }
 
-function seed(): Stores {
+/** ProposalView[] 로부터 스토어 3종을 구성한다 (시드·로더 공용). */
+function makeStores(views: ProposalView[]): Stores {
   const proposals = new InMemoryProposalStore();
   const approvals = new InMemoryApprovalStore();
   const audit = new InMemoryAuditLog();
-  const views = new Map<string, ProposalView>();
+  const map = new Map<string, ProposalView>();
 
-  const samples: ProposalView[] = [
+  for (const v of views) {
+    const { summary, diff, proofStatus, proofEvidence, affectedFiles, failureClass, ...record } = v;
+    void summary; void diff; void proofStatus; void proofEvidence; void affectedFiles; void failureClass;
+    proposals.save(record);
+    map.set(v.id, v);
+  }
+  audit.append({ actor: "system", action: "proposals.loaded", detail: { count: views.length } });
+  return { proposals, approvals, audit, views: map };
+}
+
+/** CLI 핸드오프 JSON(EnrichedProposal[])을 ProposalView[]로 변환. */
+function loadViewsFromFile(file: string): ProposalView[] | null {
+  try {
+    const raw = JSON.parse(readFileSync(file, "utf8")) as Array<{
+      signature: string;
+      scope: "test_only" | "app_source";
+      failureClass: string;
+      draft: { diff: string; summary: string; affectedFiles: string[] };
+      regressionProof: { status: "passed" | "failed" | "not_run"; evidence: string };
+      gate: { requiredApprovals: number; codeownersRequired: boolean };
+    }>;
+    return raw.map((p, i) => ({
+      id: `prop-${i + 1}`,
+      signature: p.signature,
+      scope: p.scope,
+      author: "ai",
+      requiredApprovals: p.gate.requiredApprovals,
+      codeownersRequired: p.gate.codeownersRequired,
+      regressionPassed: p.regressionProof.status === "passed",
+      status: "proposed",
+      createdAt: new Date().toISOString(),
+      summary: p.draft.summary,
+      diff: p.draft.diff,
+      proofStatus: p.regressionProof.status,
+      proofEvidence: p.regressionProof.evidence,
+      affectedFiles: p.draft.affectedFiles,
+      failureClass: p.failureClass,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+function sampleViews(): ProposalView[] {
+  return [
     {
-      id: "p-1001",
+      id: "prop-1",
       signature: "assertion|login.spec.ts|expected <num> received <num>",
       scope: "test_only",
       author: "ai",
@@ -56,7 +101,7 @@ function seed(): Stores {
       diff: `--- a/web/tests/login.spec.ts\n+++ b/web/tests/login.spec.ts\n@@\n-  expect(items).toHaveCount(3)\n+  expect(items).toHaveCount(4)\n`,
     },
     {
-      id: "p-1002",
+      id: "prop-2",
       signature: "assertion|cart.ts|total mismatch",
       scope: "app_source",
       author: "ai",
@@ -73,7 +118,7 @@ function seed(): Stores {
       diff: `--- a/web/src/lib/cart.ts\n+++ b/web/src/lib/cart.ts\n@@\n-  return items.slice(1).reduce(sum, 0)\n+  return items.reduce(sum, 0)\n`,
     },
     {
-      id: "p-1003",
+      id: "prop-3",
       signature: "exception|pipeline.py|KeyError speaker",
       scope: "app_source",
       author: "ai",
@@ -90,17 +135,16 @@ function seed(): Stores {
       diff: `--- a/src/pipeline.py\n+++ b/src/pipeline.py\n@@\n-  speaker = seg["speaker"]\n+  speaker = seg.get("speaker", "unknown")\n`,
     },
   ];
+}
 
-  for (const v of samples) {
-    const { summary, diff, proofStatus, proofEvidence, affectedFiles, failureClass, ...record } = v;
-    void summary; void diff; void proofStatus; void proofEvidence; void affectedFiles; void failureClass;
-    proposals.save(record);
-    views.set(v.id, v);
+function initialViews(): ProposalView[] {
+  const file = process.env.QA_PROPOSALS_FILE;
+  if (file && existsSync(file)) {
+    const loaded = loadViewsFromFile(file);
+    if (loaded && loaded.length > 0) return loaded;
   }
-  audit.append({ actor: "ai", action: "proposals.seeded", detail: { count: samples.length } });
-
-  return { proposals, approvals, audit, views };
+  return sampleViews();
 }
 
 const g = globalThis as unknown as { __qaStores?: Stores };
-export const stores: Stores = g.__qaStores ?? (g.__qaStores = seed());
+export const stores: Stores = g.__qaStores ?? (g.__qaStores = makeStores(initialViews()));

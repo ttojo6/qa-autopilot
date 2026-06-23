@@ -29,6 +29,9 @@ importers:
       '@qa/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@qa/remediation':
+        specifier: workspace:*
+        version: link:../../packages/remediation
       '@qa/shared':
         specifier: workspace:*
         version: link:../../packages/shared
