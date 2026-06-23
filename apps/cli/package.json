@@ -1,0 +1,22 @@
+{
+  "name": "@qa/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "qa": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --experimental-strip-types src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@qa/core": "workspace:*",
+    "@qa/shared": "workspace:*",
+    "@qa/triage": "workspace:*",
+    "@qa/adapter-playwright-ts": "workspace:*",
+    "@qa/adapter-pytest": "workspace:*",
+    "yaml": "^2.5.0"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/triage" },
+    { "path": "../../packages/adapters/playwright-ts" },
+    { "path": "../../packages/adapters/pytest" }
+  ],
+  "include": ["src/**/*"]
+}

@@ -1,0 +1,47 @@
+# --- Dependencies ---
+node_modules/
+.pnpm-store/
+
+# --- Build output ---
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+
+# --- Test / coverage ---
+coverage/
+*.lcov
+.nyc_output/
+
+# --- Runtime artifacts (test traces, screenshots, videos) ---
+artifacts/
+playwright-report/
+test-results/
+.report.json
+
+# --- Remediation temp files (worktree patches / PR bodies) ---
+.qa-autopilot.patch
+.qa-autopilot-pr.patch
+.qa-autopilot-pr-body.md
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Logs ---
+*.log
+npm-debug.log*
+pnpm-debug.log*
+logs/
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini

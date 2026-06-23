@@ -1,0 +1,53 @@
+# Actnote 를 첫 적용 케이스로 삼은 qa-autopilot 매니페스트 예시.
+# 코어는 도메인 지식을 모른다 — Actnote 고유 설정은 전부 여기서 주입된다.
+project: actnote
+
+runners:
+  - id: web-e2e
+    adapter: playwright-ts
+    workdir: actnote-web
+    command: "npx playwright test --reporter=json"
+    timeoutMs: 600000
+  - id: pipeline
+    adapter: pytest
+    workdir: .
+    command: "uv run pytest --json-report --json-report-file=.report.json"
+    timeoutMs: 1800000
+
+# 원칙 A — Retry Lane: 코드 무변경, 일시 장애만 흡수. 비용 폭주 방지 상한.
+retry:
+  maxRetries: 2
+  backoffMs: 3000
+  retryableErrors: [timeout, network]
+
+# R3 — 사이클당 예산 상한. 초과 시 즉시 중단하고 미실행분 SKIP.
+budget:
+  maxCostUsd: 5.0
+  maxWallMs: 1800000 # 30분
+  maxRetries: 50
+  costPerRerunUsd: 0.05
+
+# 원칙 B — Signal Gate: 노이즈 신호는 Quarantine 으로 격리.
+triage:
+  classes: [PRODUCT_BUG, TEST_BUG, FLAKY, ENV_INFRA, DATA, MODEL_API]
+  flakySignals:
+    - "timeout"
+    - "element not found"
+    - "net::"
+    - "ECONNRESET"
+    - "503"
+  confidenceThreshold: 0.75 # 미만이면 자동 처리 금지 → Human Triage Queue
+
+# ⑤ 자가 치유: 범위별 게이트 차등. 앱 소스 수정은 더 엄격.
+remediation:
+  testOnly:
+    autoPr: true
+    approval: 1
+  appSource:
+    autoPr: false # 앱 소스는 자동 PR 금지
+    approval: 2
+    codeownersRequired: true
+
+# ④ 거버넌스: 노이즈는 릴리즈 게이트에서 제외.
+governance:
+  releaseGateExclude: [FLAKY, ENV_INFRA]
