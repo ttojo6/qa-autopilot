@@ -32,6 +32,9 @@ importers:
       '@qa/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@qa/eval':
+        specifier: workspace:*
+        version: link:../../packages/eval
       '@qa/governance':
         specifier: workspace:*
         version: link:../../packages/governance
@@ -117,6 +120,15 @@ importers:
       '@qa/shared':
         specifier: workspace:*
         version: link:../shared
+
+  packages/eval:
+    dependencies:
+      '@qa/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@qa/triage':
+        specifier: workspace:*
+        version: link:../triage
 
   packages/governance:
     dependencies:

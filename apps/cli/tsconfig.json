@@ -12,6 +12,7 @@
     { "path": "../../packages/governance" },
     { "path": "../../packages/metrics" },
     { "path": "../../packages/authoring" },
+    { "path": "../../packages/eval" },
     { "path": "../../packages/adapters/playwright-ts" },
     { "path": "../../packages/adapters/pytest" }
   ],

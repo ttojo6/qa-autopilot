@@ -110,7 +110,10 @@ qa run --config <p> [--auto-pr] [--fail-on-blocking]   # 실행→Triage→Remed
 qa author --config <p> --spec <specs.json> [--verify]  # 테스트 초안 생성→검증→리뷰 큐
 qa scan-rollbacks --config <p>                          # git revert 스캔 → R2 rollback 무인 기록
 qa feedback --config <p> [--override N] [--merged N] [--rolled-back N]   # 수동 피드백(폴백)
+qa eval --config <p>                                    # 분류 품질 측정(라벨 데이터셋, 휴리스틱 + 키 있으면 LLM)
 ```
+
+> `qa eval`은 라벨된 실패 데이터셋에 분류기를 돌려 정확도·혼동행렬을 낸다. 휴리스틱 단독은 명확한 케이스만 맞히고(약 50%, 저신뢰 ~79%) 애매한 클래스(인프라/모델API/테스트버그)에서 틀려 — **LLM escalation과 "저신뢰→사람" 설계를 숫자로 정당화**한다. `ANTHROPIC_API_KEY` 가 있으면 LLM 분류기도 같은 셋으로 평가해 정확도 Δ를 보여준다.
 
 ---
 
@@ -156,6 +159,7 @@ qa-autopilot/
 │   ├── governance/   # 감사 + 승인 평가 + 인메모리/Postgres 스토어
 │   ├── metrics/      # 메타 지표 + STOP 트리거
 │   ├── authoring/    # 테스트 생성 + 중복제거 + 검증 + 리뷰 큐
+│   ├── eval/         # 분류 품질 측정 (라벨 데이터셋 + 채점기)
 │   └── adapters/{playwright-ts,pytest}/
 ├── apps/{cli,dashboard}/
 ├── examples/{demo,ci-smoke}/

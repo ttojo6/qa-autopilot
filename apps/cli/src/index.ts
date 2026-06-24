@@ -3,6 +3,7 @@ import { resolve, dirname } from "node:path";
 import { mkdirSync } from "node:fs";
 import { runCycle, unrecoveredFailures, applyVerdict, type OrchestratorDeps } from "@qa/core";
 import { TriageEngine, HeuristicClassifier, LlmClassifier } from "@qa/triage";
+import { runTriageEval, TRIAGE_DATASET, formatReport } from "@qa/eval";
 import type { RunnerAdapter, AdapterContext, Lane } from "@qa/shared";
 import { createAdapter as playwright } from "@qa/adapter-playwright-ts";
 import { createAdapter as pytest } from "@qa/adapter-pytest";
@@ -180,6 +181,28 @@ async function cmdAuthor(configPath: string, argv: readonly string[]): Promise<v
   );
 }
 
+/**
+ * Triage 분류 품질 eval — 라벨 데이터셋에 휴리스틱(항상)과 LLM(키 있을 때)을 돌려 정확도를 비교한다.
+ * "휴리스틱만으론 부족 → LLM escalation 필요"를 숫자로 보여준다.
+ */
+async function cmdEval(configPath: string): Promise<void> {
+  const config = loadConfig(resolve(process.cwd(), configPath));
+  const opts = { flakySignals: config.triage.flakySignals, lowConfThreshold: config.triage.confidenceThreshold };
+
+  const heuristic = await runTriageEval(new HeuristicClassifier(), TRIAGE_DATASET, { ...opts, source: "heuristic" });
+  console.log(formatReport(heuristic));
+
+  if (process.env.ANTHROPIC_API_KEY) {
+    const llm = await runTriageEval(new LlmClassifier(), TRIAGE_DATASET, { ...opts, source: "claude:haiku-4-5" });
+    console.log(formatReport(llm));
+    console.log(
+      `\nΔ accuracy: ${((llm.accuracy - heuristic.accuracy) * 100).toFixed(1)}pp (heuristic ${(heuristic.accuracy * 100).toFixed(0)}% → llm ${(llm.accuracy * 100).toFixed(0)}%)`
+    );
+  } else {
+    console.log("\n(set ANTHROPIC_API_KEY to also eval the LLM classifier)");
+  }
+}
+
 async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boolean): Promise<void> {
   const abs = resolve(process.cwd(), configPath);
   const config = loadConfig(abs);
@@ -283,6 +306,9 @@ async function main(): Promise<void> {
     case "author":
       await cmdAuthor(config, argv);
       break;
+    case "eval":
+      await cmdEval(config);
+      break;
     default:
       console.log(
         [
@@ -297,6 +323,8 @@ async function main(): Promise<void> {
           "    git 로그에서 remediation 커밋을 되돌린 revert를 찾아 R2 rollback을 무인 기록(멱등).",
           "  qa author --config <path> --spec <specs.json>",
           "    스펙으로부터 테스트 초안 생성·중복제거·검증 → 리뷰 큐(test-proposals.json). 자동 추가 안 함.",
+          "  qa eval --config <path>",
+          "    Triage 분류 품질 측정(라벨 데이터셋). 휴리스틱 항상, LLM은 ANTHROPIC_API_KEY 있을 때.",
           "",
         ].join("\n")
       );
