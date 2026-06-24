@@ -9,7 +9,7 @@
 1. **재시도(Retry)와 수정(Fix)의 분리** — 플레이키/인프라는 Retry Lane에서만 흡수하고 코드를 건드리지 않는다. "진짜 결함"으로 분류된 것만 Remediation Lane에 진입한다.
 2. **실패 분석과 노이즈의 격리** — 모든 실패는 Signal Gate를 먼저 통과한다. 노이즈는 Quarantine으로 격리되어 릴리즈 게이트·수정 대상·핵심 지표에서 제외된다.
 
-자세한 설계는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), 리스크 레지스터는 [`docs/RISKS.md`](docs/RISKS.md) 참조.
+자세한 설계는 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md), 리스크 레지스터는 [`docs/RISKS.md`](docs/RISKS.md), GitHub 연동·운영은 [`docs/OPERATIONS.md`](docs/OPERATIONS.md) 참조.
 
 ---
 

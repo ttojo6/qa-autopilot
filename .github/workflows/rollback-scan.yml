@@ -1,0 +1,30 @@
+name: Rollback scan
+
+# R2 무인화 — remediation 커밋을 되돌린 git revert를 주기적으로 스캔해 rollback 누계에 반영.
+# 공유 누계에 쓰려면 secrets.DATABASE_URL 필요(미설정 시 파일 모드라 CI에선 휘발).
+on:
+  schedule:
+    - cron: "0 3 * * *" # 매일 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git log 전체 히스토리 필요
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r run build
+      - name: Apply migrations (if DB configured)
+        if: ${{ env.DATABASE_URL != '' }}
+        run: pnpm --filter @qa/governance run db:migrate
+      - name: Scan reverts → record R2 rollbacks (idempotent)
+        run: node apps/cli/dist/index.js scan-rollbacks --config examples/ci-smoke/qa.config.yaml
