@@ -7,6 +7,31 @@
 
 import type { DraftVerifier, TestCaseDraft, DraftVerification } from "./types.js";
 
+/** 초안을 격리 실행한 raw 결과. 호출자(러너 배선)가 채운다. */
+export interface DraftRunResult {
+  /** 러너가 이 테스트를 수집·실행했는가 (import/문법 OK). */
+  readonly ran: boolean;
+  /** 실행됐다면 통과했는가. */
+  readonly passed: boolean;
+  /** 수집/문법 실패 메시지 (있으면 errors). */
+  readonly collectError?: string;
+}
+
+/**
+ * raw 실행 결과 → VerifyOutcome.
+ *  - 수집 실패/미실행 → errors (리뷰 큐에서 배제)
+ *  - 실행+통과 → runs_passes
+ *  - 실행+실패 → runs_fails (진짜 버그이거나 잘못된 단언 — 사람 판단)
+ */
+export function classifyDraftRun(r: DraftRunResult): DraftVerification {
+  if (r.collectError || !r.ran) {
+    return { outcome: "errors", evidence: r.collectError ?? "draft was not collected/executed" };
+  }
+  return r.passed
+    ? { outcome: "runs_passes", evidence: "draft ran and passed against current code" }
+    : { outcome: "runs_fails", evidence: "draft ran but failed — possible real bug or wrong assertion" };
+}
+
 export class NullDraftVerifier implements DraftVerifier {
   async verify(): Promise<DraftVerification> {
     return { outcome: "not_run", evidence: "no verifier wired; draft not executed" };

@@ -12,8 +12,16 @@ import { persistProposals } from "./persist.js";
 import { makeMetricsStore } from "./metrics-store.js";
 import { makeRevertLedger } from "./revert-ledger.js";
 import { CliGitLogReader, detectRemediationRollbacks } from "@qa/remediation";
-import { AuthoringEngine, NullTestCaseGenerator, LlmTestCaseGenerator } from "@qa/authoring";
-import { readFileSync, writeFileSync } from "node:fs";
+import {
+  AuthoringEngine,
+  NullTestCaseGenerator,
+  LlmTestCaseGenerator,
+  NullDraftVerifier,
+  toStored,
+} from "@qa/authoring";
+import { makeAuthoringStore } from "./authoring-store.js";
+import { makeDraftVerifier, adapterRunDraft } from "./draft-verifier.js";
+import { readFileSync } from "node:fs";
 import {
   evaluateTriggers,
   deriveControls,
@@ -138,13 +146,26 @@ async function cmdAuthor(configPath: string, argv: readonly string[]): Promise<v
   const generator = process.env.ANTHROPIC_API_KEY
     ? new LlmTestCaseGenerator()
     : new NullTestCaseGenerator();
-  const engine = new AuthoringEngine({ generator });
+
+  // --verify: 초안을 worktree에 적용해 실제 러너로 검증. 미지정 시 검증 생략(not_run).
+  const verify = argv.includes("--verify");
+  const verifier = verify
+    ? makeDraftVerifier({ repoRoot: projectRoot, runDraft: adapterRunDraft(loadConfig(resolve(process.cwd(), configPath)), ADAPTERS) })
+    : new NullDraftVerifier();
+
+  const engine = new AuthoringEngine({ generator, verifier });
   const proposals = await engine.author(specs);
 
-  const dir = resolve(projectRoot, "artifacts");
-  mkdirSync(dir, { recursive: true });
-  const file = resolve(dir, "test-proposals.json");
-  writeFileSync(file, JSON.stringify(proposals, null, 2), "utf8");
+  // 리뷰 큐에 적재(콘솔과 공유). 재적재 시 사람 결정은 보존.
+  const runnerOf = new Map(specs.map((s) => [s.id, s.targetRunner]));
+  const sh = makeAuthoringStore(projectRoot);
+  try {
+    for (const p of proposals) {
+      await sh.store.upsert(toStored(p, runnerOf.get(p.draft.specId) ?? "unknown"));
+    }
+  } finally {
+    await sh.close();
+  }
 
   const byStatus: Record<string, number> = {};
   for (const p of proposals) byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
@@ -152,8 +173,8 @@ async function cmdAuthor(configPath: string, argv: readonly string[]): Promise<v
   console.log(
     [
       `author: ${specs.length} spec(s) → ${proposals.length} draft(s)  [${line}]`,
-      `  → ${file}`,
-      `  generator: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8" : "null (set ANTHROPIC_API_KEY)"}`,
+      `  generator: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8" : "null (set ANTHROPIC_API_KEY)"}  verify: ${verify ? "worktree" : "off"}`,
+      `  → 리뷰 큐 적재(${process.env.DATABASE_URL ? "postgres" : "artifacts/test-proposals.json"}). 콘솔 /authoring 에서 승인.`,
       `  모든 초안은 사람 리뷰 대상 — 레포에 자동 추가되지 않음.`,
     ].join("\n")
   );

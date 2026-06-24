@@ -53,6 +53,9 @@ importers:
 
   apps/dashboard:
     dependencies:
+      '@qa/authoring':
+        specifier: workspace:*
+        version: link:../../packages/authoring
       '@qa/governance':
         specifier: workspace:*
         version: link:../../packages/governance

@@ -92,6 +92,7 @@ export class LlmTestCaseGenerator implements TestCaseGenerator {
     const parsed = JSON.parse(extractText(res)) as GenJson;
     return parsed.tests.map((t) => ({
       specId: spec.id,
+      targetRunner: spec.targetRunner,
       title: t.title,
       filePath: t.file_path,
       code: t.code,

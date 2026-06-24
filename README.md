@@ -215,13 +215,15 @@ qa-autopilot/
 
 **성숙도 5단계 전부 코드화 완료.** RISKS.md의 R1–R4 STOP 트리거도 자동화됨.
 
-### 테스트 생성 (Phase 5 Authoring)
+### 테스트 생성 + 리뷰 (Phase 5 Authoring)
 
 ```bash
-qa author --config <path> --spec <specs.json>   # 스펙 → 초안 → test-proposals.json
+qa author --config <path> --spec <specs.json> [--verify]   # 스펙 → 초안 → 리뷰 큐
 ```
 
-스펙(JSON 배열, `{id, description, targetRunner, context?}`)으로부터 `claude-opus-4-8`가 테스트 초안을 생성한다. 기존 테스트와 **중복 제거**, **격리 실행 검증**(실행 불가는 배제), 모든 초안은 **사람 리뷰 대상**으로 큐에 들어간다 — **레포에 자동 추가되지 않는다**.
+스펙(JSON 배열, `{id, description, targetRunner, context?}`)으로부터 `claude-opus-4-8`가 테스트 초안을 생성한다. 기존 테스트와 **중복 제거** → `--verify` 시 **격리 worktree에 적용해 실제 러너로 실행**(`runs_passes`/`runs_fails`/`errors` 판정, 실행 불가는 배제) → **리뷰 큐**(`DATABASE_URL` 또는 `test-proposals.json`)에 적재.
+
+콘솔 **/authoring** 에서 사람이 승인/거절한다. **승인은 "테스트로 채택" 의사일 뿐 — AI는 레포에 테스트를 추가하지 않는다**(사람이 추가/PR). 큐 표시는 `QA_TEST_PROPOSALS_FILE`(파일 모드) 또는 같은 `DATABASE_URL`(공유).
 
 ## 안전 불변 (요약)
 

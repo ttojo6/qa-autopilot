@@ -18,6 +18,7 @@ export interface TestSpec {
 /** 생성된 테스트 초안. */
 export interface TestCaseDraft {
   readonly specId: string;
+  readonly targetRunner: string; // 이 초안을 실행할 러너 (스펙에서 전파)
   readonly title: string;
   readonly filePath: string; // 제안 경로
   readonly code: string;

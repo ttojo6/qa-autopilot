@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import type { ApprovalRecord } from "@qa/governance";
-import { submitDecision, recordOverride, recordRollback } from "../lib/data";
+import { submitDecision, recordOverride, recordRollback, decideTest } from "../lib/data";
 
 /**
  * 승인/거절 Server Action. submitDecision → recordApproval가 self-approve/봇승인 차단·정족수·
@@ -39,4 +39,14 @@ export async function reportRollback(formData: FormData): Promise<void> {
   await recordRollback();
   revalidatePath(`/proposals/${proposalId}`);
   revalidatePath("/");
+}
+
+/** ① Authoring 리뷰 — 생성된 테스트 초안 승인/거절. 승인돼도 추가는 사람이 한다. */
+export async function decideTestProposal(formData: FormData): Promise<void> {
+  const id = String(formData.get("id") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  if (!id || (decision !== "approved" && decision !== "rejected")) return;
+  await decideTest(id, decision);
+  revalidatePath(`/authoring/${id}`);
+  revalidatePath("/authoring");
 }

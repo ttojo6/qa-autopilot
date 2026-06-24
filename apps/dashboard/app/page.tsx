@@ -20,7 +20,10 @@ export default async function HomePage() {
   return (
     <main>
       <h1>Governance Console</h1>
-      <p className="sub">AI 수정 제안을 검토·승인한다. AI는 PR 생성까지만 — 병합은 사람이 한다.</p>
+      <p className="sub">
+        AI 수정 제안을 검토·승인한다. AI는 PR 생성까지만 — 병합은 사람이 한다. ·{" "}
+        <Link href="/authoring">Authoring 리뷰 큐 →</Link>
+      </p>
 
       <div className="card">
         <strong>Safety</strong>{" "}

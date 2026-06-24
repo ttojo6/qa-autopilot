@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { METRICS_FILE, PROPOSALS_FILE } from "./e2e/paths";
+import { METRICS_FILE, PROPOSALS_FILE, TEST_PROPOSALS_FILE } from "./e2e/paths";
 
 const PORT = 3990;
 
@@ -25,6 +25,7 @@ export default defineConfig({
     env: {
       QA_METRICS_FILE: METRICS_FILE,
       QA_PROPOSALS_FILE: PROPOSALS_FILE,
+      QA_TEST_PROPOSALS_FILE: TEST_PROPOSALS_FILE,
     },
   },
 });

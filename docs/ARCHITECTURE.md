@@ -45,7 +45,7 @@ runners(adapters) ──► RunReport(정규형) ──► Signal Gate ──┬
 | `@qa/remediation` | 수정 범위 분류 + git worktree 회귀 증빙(`FixVerifier`) + 거버넌스 게이트 + gh PR 포트(merge 없음) |
 | `@qa/governance` | append-only 감사(`AuditLog`) + 승인 평가(self-approve/codeowners/정족수) + 인메모리/Postgres 스토어(`@qa/governance/pg`, `Queryable` 포트) |
 | `@qa/metrics` | 메타 지표 + STOP 트리거(R1/R2/R4) + 공유 스토어(File/Pg) |
-| `@qa/authoring` | ① 테스트 생성(opus) + 중복제거 + 검증 + 리뷰 큐 (자동 추가 금지) |
+| `@qa/authoring` | ① 테스트 생성(opus) + 중복제거 + worktree 검증 + 리뷰 큐 스토어(File/Pg) — 자동 추가 금지 |
 | `@qa/cli` | `qa run` 진입점, 어댑터 레지스트리, 설정 로더, Triage 조합 |
 | (예정) `apps/dashboard` | Next.js 승인 콘솔 (governance 백엔드 소비) |
 

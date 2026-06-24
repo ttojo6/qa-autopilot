@@ -19,6 +19,14 @@ import {
   type Trigger,
   type SafetyControls,
 } from "@qa/metrics";
+import {
+  FileAuthoringStore,
+  PgAuthoringStore,
+  InMemoryAuthoringStore,
+  type AuthoringStore,
+  type StoredTestProposal,
+  type Decision,
+} from "@qa/authoring";
 import { stores as memStores, type ProposalView } from "./store";
 
 const usePg = Boolean(process.env.DATABASE_URL);
@@ -160,6 +168,50 @@ export async function recordOverride(): Promise<void> {
 /** R2 — 병합 후 롤백을 보고. */
 export async function recordRollback(): Promise<void> {
   await getMetricsStore().addFeedback({ rolledBack: 1 });
+}
+
+// ── Authoring 리뷰 큐 (#3) ─────────────────────────────────────────────────
+
+function getAuthoringStore(): AuthoringStore {
+  const g = globalThis as unknown as { __qaAuthoring?: AuthoringStore };
+  if (g.__qaAuthoring) return g.__qaAuthoring;
+  if (usePg) {
+    g.__qaAuthoring = new LazyPgAuthoringStore();
+  } else if (process.env.QA_TEST_PROPOSALS_FILE) {
+    g.__qaAuthoring = new FileAuthoringStore(process.env.QA_TEST_PROPOSALS_FILE);
+  } else {
+    g.__qaAuthoring = new InMemoryAuthoringStore();
+  }
+  return g.__qaAuthoring;
+}
+
+class LazyPgAuthoringStore implements AuthoringStore {
+  private async inner(): Promise<PgAuthoringStore> {
+    const pg = await getPg();
+    return new PgAuthoringStore(pg.pool as never);
+  }
+  async upsert(p: StoredTestProposal) {
+    return (await this.inner()).upsert(p);
+  }
+  async list() {
+    return (await this.inner()).list();
+  }
+  async get(id: string) {
+    return (await this.inner()).get(id);
+  }
+  async setDecision(id: string, d: Decision) {
+    return (await this.inner()).setDecision(id, d);
+  }
+}
+
+export async function listTestProposals(): Promise<StoredTestProposal[]> {
+  return getAuthoringStore().list();
+}
+export async function getTestProposal(id: string): Promise<StoredTestProposal | undefined> {
+  return getAuthoringStore().get(id);
+}
+export async function decideTest(id: string, decision: Decision): Promise<void> {
+  await getAuthoringStore().setDecision(id, decision);
 }
 
 export const backend: "postgres" | "memory" = usePg ? "postgres" : "memory";
