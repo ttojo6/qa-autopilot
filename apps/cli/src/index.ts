@@ -12,6 +12,8 @@ import { persistProposals } from "./persist.js";
 import { makeMetricsStore } from "./metrics-store.js";
 import { makeRevertLedger } from "./revert-ledger.js";
 import { CliGitLogReader, detectRemediationRollbacks } from "@qa/remediation";
+import { AuthoringEngine, NullTestCaseGenerator, LlmTestCaseGenerator } from "@qa/authoring";
+import { readFileSync, writeFileSync } from "node:fs";
 import {
   evaluateTriggers,
   deriveControls,
@@ -46,6 +48,11 @@ function parseArgs(argv: readonly string[]): Args {
 }
 
 const pct = (n: number): string => `${(n * 100).toFixed(0)}%`;
+
+function flagStr(argv: readonly string[], flag: string): string | undefined {
+  const i = argv.indexOf(flag);
+  return i >= 0 ? argv[i + 1] : undefined;
+}
 
 function flagNum(argv: readonly string[], flag: string): number {
   const i = argv.indexOf(flag);
@@ -102,6 +109,54 @@ async function cmdScanRollbacks(configPath: string): Promise<void> {
     await ledgerH.close();
     await metricsH.close();
   }
+}
+
+/**
+ * ① Authoring — 스펙(JSON)으로부터 테스트 초안을 생성·중복제거·검증해 리뷰 큐로 내보낸다.
+ * 절대 레포에 테스트를 자동 추가하지 않는다 — 사람 승인 대상 제안만 만든다.
+ */
+async function cmdAuthor(configPath: string, argv: readonly string[]): Promise<void> {
+  const projectRoot = dirname(resolve(process.cwd(), configPath));
+  const specPath = flagStr(argv, "--spec");
+  if (!specPath) {
+    console.error("qa author: --spec <specs.json> required");
+    process.exitCode = 1;
+    return;
+  }
+  const specs = JSON.parse(readFileSync(resolve(process.cwd(), specPath), "utf8")) as Array<{
+    id: string;
+    description: string;
+    targetRunner: string;
+    context?: string;
+  }>;
+  if (!Array.isArray(specs) || specs.some((s) => !s.id || !s.description || !s.targetRunner)) {
+    console.error("qa author: spec file must be an array of {id, description, targetRunner}");
+    process.exitCode = 1;
+    return;
+  }
+
+  const generator = process.env.ANTHROPIC_API_KEY
+    ? new LlmTestCaseGenerator()
+    : new NullTestCaseGenerator();
+  const engine = new AuthoringEngine({ generator });
+  const proposals = await engine.author(specs);
+
+  const dir = resolve(projectRoot, "artifacts");
+  mkdirSync(dir, { recursive: true });
+  const file = resolve(dir, "test-proposals.json");
+  writeFileSync(file, JSON.stringify(proposals, null, 2), "utf8");
+
+  const byStatus: Record<string, number> = {};
+  for (const p of proposals) byStatus[p.status] = (byStatus[p.status] ?? 0) + 1;
+  const line = Object.entries(byStatus).map(([k, v]) => `${k}:${v}`).join("  ") || "(none)";
+  console.log(
+    [
+      `author: ${specs.length} spec(s) → ${proposals.length} draft(s)  [${line}]`,
+      `  → ${file}`,
+      `  generator: ${process.env.ANTHROPIC_API_KEY ? "claude-opus-4-8" : "null (set ANTHROPIC_API_KEY)"}`,
+      `  모든 초안은 사람 리뷰 대상 — 레포에 자동 추가되지 않음.`,
+    ].join("\n")
+  );
 }
 
 async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boolean): Promise<void> {
@@ -204,6 +259,9 @@ async function main(): Promise<void> {
     case "scan-rollbacks":
       await cmdScanRollbacks(config);
       break;
+    case "author":
+      await cmdAuthor(config, argv);
+      break;
     default:
       console.log(
         [
@@ -216,6 +274,8 @@ async function main(): Promise<void> {
           "    사람 피드백을 누계에 기록 → STOP 트리거(R1 override / R2 rollback) 평가에 반영.",
           "  qa scan-rollbacks --config <path>",
           "    git 로그에서 remediation 커밋을 되돌린 revert를 찾아 R2 rollback을 무인 기록(멱등).",
+          "  qa author --config <path> --spec <specs.json>",
+          "    스펙으로부터 테스트 초안 생성·중복제거·검증 → 리뷰 큐(test-proposals.json). 자동 추가 안 함.",
           "",
         ].join("\n")
       );

@@ -26,6 +26,9 @@ importers:
       '@qa/adapter-pytest':
         specifier: workspace:*
         version: link:../../packages/adapters/pytest
+      '@qa/authoring':
+        specifier: workspace:*
+        version: link:../../packages/authoring
       '@qa/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -96,6 +99,15 @@ importers:
       '@qa/shared':
         specifier: workspace:*
         version: link:../../shared
+
+  packages/authoring:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.69.0
+        version: 0.69.0
+      '@qa/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/core:
     dependencies:

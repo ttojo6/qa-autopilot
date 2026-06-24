@@ -19,6 +19,7 @@
     "@qa/remediation": "workspace:*",
     "@qa/governance": "workspace:*",
     "@qa/metrics": "workspace:*",
+    "@qa/authoring": "workspace:*",
     "@qa/adapter-playwright-ts": "workspace:*",
     "@qa/adapter-pytest": "workspace:*",
     "yaml": "^2.5.0"

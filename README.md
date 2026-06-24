@@ -191,6 +191,7 @@ qa-autopilot/
 │   ├── remediation/    # 범위 분류 + git worktree 회귀 증빙 + 게이트 + gh PR 포트(merge 없음)
 │   ├── governance/     # append-only 감사 + 승인 평가 + 인메모리/Postgres 스토어(@qa/governance/pg)
 │   ├── metrics/        # 메타 지표 + STOP 트리거(R1/R2/R4) — 과거 성과가 현재 자동화를 게이팅
+│   ├── authoring/      # ① AI 테스트 케이스 생성 — 생성·중복제거·검증·리뷰 큐(자동 추가 금지)
 │   └── adapters/
 │       ├── playwright-ts/   # Playwright JSON → 정규형
 │       └── pytest/          # pytest JSON → 정규형
@@ -206,13 +207,21 @@ qa-autopilot/
 
 | 단계 | 컴포넌트 | 상태 |
 |---|---|---|
-| ① 테스트 설계/생성 | `authoring` | 예정 |
+| ① 테스트 설계/생성 | `authoring` + `cli` | ✅ 생성(opus)·중복제거·검증·리뷰 큐 (자동 추가 금지) |
 | ② 통합 실행 | `core` + `adapters/*` | ✅ 실 spawn/parse + runCase + Budget |
 | ③ 1차 실패 분석 | `triage` | ✅ 휴리스틱/LLM 분류 + confidence 라우팅 |
-| ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 콘솔 + **Postgres 영속화** |
-| ⑤ 자가 치유 | `remediation` + `cli` | ✅ CLI 실배선 — signal→생성·worktree 증빙·게이트·PR→콘솔 핸드오프 |
+| ④ 사람 최종 확인 | `governance` + `apps/dashboard` | ✅ 감사 + 승인 평가 + Next.js 콘솔 + Postgres 영속화 |
+| ⑤ 자가 치유 | `remediation` + `cli` | ✅ signal→생성·worktree 증빙·게이트·PR→콘솔 핸드오프 |
 
-`[~]` Phase 1 노이즈 격리는 Signal Gate 2단계 + Quarantine TTL 재평가까지 동작(격리 영속화는 콘솔 작업 시).
+**성숙도 5단계 전부 코드화 완료.** RISKS.md의 R1–R4 STOP 트리거도 자동화됨.
+
+### 테스트 생성 (Phase 5 Authoring)
+
+```bash
+qa author --config <path> --spec <specs.json>   # 스펙 → 초안 → test-proposals.json
+```
+
+스펙(JSON 배열, `{id, description, targetRunner, context?}`)으로부터 `claude-opus-4-8`가 테스트 초안을 생성한다. 기존 테스트와 **중복 제거**, **격리 실행 검증**(실행 불가는 배제), 모든 초안은 **사람 리뷰 대상**으로 큐에 들어간다 — **레포에 자동 추가되지 않는다**.
 
 ## 안전 불변 (요약)
 
