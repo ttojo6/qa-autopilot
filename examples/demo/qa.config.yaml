@@ -1,14 +1,14 @@
-# Actnote 를 첫 적용 케이스로 삼은 qa-autopilot 매니페스트 예시.
-# 코어는 도메인 지식을 모른다 — Actnote 고유 설정은 전부 여기서 주입된다.
-project: actnote
+# 예시 매니페스트 — 대상 레포 루트에 두고 `qa run --config <path>` 로 실행한다.
+# 코어는 도메인 지식을 모른다. 프로젝트별 차이는 전부 이 파일로 주입된다.
+project: demo
 
 runners:
   - id: web-e2e
     adapter: playwright-ts
-    workdir: actnote-web
+    workdir: web # project 루트 기준 상대 경로
     command: "npx playwright test --reporter=json"
     timeoutMs: 600000
-  - id: pipeline
+  - id: api
     adapter: pytest
     workdir: .
     command: "uv run pytest --json-report --json-report-file=.report.json"
@@ -27,15 +27,10 @@ budget:
   maxRetries: 50
   costPerRerunUsd: 0.05
 
-# 원칙 B — Signal Gate: 노이즈 신호는 Quarantine 으로 격리.
+# 원칙 B — Signal Gate + 분류. 노이즈 신호는 Quarantine 으로 격리.
 triage:
   classes: [PRODUCT_BUG, TEST_BUG, FLAKY, ENV_INFRA, DATA, MODEL_API]
-  flakySignals:
-    - "timeout"
-    - "element not found"
-    - "net::"
-    - "ECONNRESET"
-    - "503"
+  flakySignals: ["timeout", "ECONNRESET", "503"]
   confidenceThreshold: 0.75 # 미만이면 자동 처리 금지 → Human Triage Queue
 
 # ⑤ 자가 치유: 범위별 게이트 차등. 앱 소스 수정은 더 엄격.

@@ -1,6 +1,6 @@
 -- qa-autopilot 초기 스키마 (Phase 0).
 -- 거버넌스·감사가 제품의 차별점이므로 스키마부터 그 모양으로 둔다.
--- 이력은 append-only 를 지향한다 (Actnote bi-temporal 감각 차용).
+-- 이력은 append-only 를 지향한다 (bi-temporal 감각 — 변경 이력을 시간으로 추적).
 
 create table if not exists test_runs (
   id            uuid primary key default gen_random_uuid(),

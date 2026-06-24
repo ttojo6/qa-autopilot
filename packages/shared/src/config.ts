@@ -5,7 +5,7 @@
 
 import type { RawErrorType } from "./test-result.js";
 
-/** Triage가 산출하는 고수준 근본원인 분류 (Actnote error_classifier 6종에서 영감). */
+/** Triage가 산출하는 고수준 근본원인 분류 (6종). */
 export type FailureClass =
   | "PRODUCT_BUG" // 앱 실제 결함 → Remediation(app_source) 후보
   | "TEST_BUG" // 테스트 자체 오류 → Remediation(test_only) 후보

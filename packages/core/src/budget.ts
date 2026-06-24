@@ -1,7 +1,7 @@
 /**
  * Budget — 사이클당 비용·시간 상한 (R3: 재시도 비용 폭주 방어).
  *
- * Actnote 교훈: Modal retries=3 이 STT·화자분리·LLM 을 처음부터 재과금. 재시도는
+ * 교훈: step memoization 없는 재시도(retries=N)는 비싼 단계(LLM·GPU·외부 API)를 처음부터 재과금. 재시도는
  * "통과할 때까지" 돌면 비용이 폭주한다. Retry Lane·Orchestrator는 매 작업 전 Budget.check()로
  * 한도를 확인하고, 초과 시 즉시 중단(BudgetExceeded)하고 미실행분을 SKIPPED로 보고한다.
  *

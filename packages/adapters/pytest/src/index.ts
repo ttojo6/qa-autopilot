@@ -14,7 +14,7 @@ import { runCommand } from "@qa/shared";
  * pytest 어댑터 (스텁).
  *
  * Phase 0: `pytest-json-report` 의 .report.json 을 정규형으로 환원하는 자리.
- * Actnote 파이프라인(STT→화자분리→LLM→Notion) 테스트가 이 어댑터로 들어온다.
+ * Python 백엔드/파이프라인/통합 테스트가 이 어댑터로 들어온다.
  */
 
 /** pytest longrepr/crash 메시지 → RawErrorType 매핑. */
