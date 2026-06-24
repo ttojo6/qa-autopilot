@@ -1,36 +1,23 @@
 /**
- * 메타 지표 누계 영속 — artifacts/metrics.json.
- *
- * 과거 성과가 현재 자동화를 게이팅한다(STOP 트리거). 누계가 쌓여야 임계가 의미를 갖는다.
- * (운영에서는 DB로 옮길 수 있으나, 지표는 작고 단일 파일로 충분.)
+ * 메트릭 스토어 팩토리 — DATABASE_URL 있으면 Postgres(콘솔과 공유), 없으면 파일.
+ * 콘솔의 사람 피드백과 CLI의 라우팅 누적이 같은 누계를 보게 한다(STOP 트리거 무인 작동).
  */
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { EMPTY_SNAPSHOT, type MetricsSnapshot } from "@qa/metrics";
+import { FileMetricsStore, PgMetricsStore, type MetricsStore } from "@qa/metrics";
+import { createPool } from "@qa/governance/pg";
 
-function metricsFile(projectRoot: string): string {
-  return join(resolve(projectRoot, "artifacts"), "metrics.json");
+export interface MetricsHandle {
+  store: MetricsStore;
+  close: () => Promise<void>;
 }
 
-export function loadMetrics(projectRoot: string): MetricsSnapshot {
-  const f = metricsFile(projectRoot);
-  if (!existsSync(f)) return EMPTY_SNAPSHOT;
-  try {
-    const parsed = JSON.parse(readFileSync(f, "utf8")) as MetricsSnapshot;
-    return {
-      routing: { ...EMPTY_SNAPSHOT.routing, ...parsed.routing },
-      feedback: { ...EMPTY_SNAPSHOT.feedback, ...parsed.feedback },
-    };
-  } catch {
-    return EMPTY_SNAPSHOT;
+export function makeMetricsStore(projectRoot: string): MetricsHandle {
+  const url = process.env.DATABASE_URL;
+  if (url) {
+    const pool = createPool(url);
+    return { store: new PgMetricsStore(pool), close: () => pool.end() };
   }
-}
-
-export function saveMetrics(projectRoot: string, snap: MetricsSnapshot): string {
-  const dir = resolve(projectRoot, "artifacts");
-  mkdirSync(dir, { recursive: true });
-  const f = metricsFile(projectRoot);
-  writeFileSync(f, JSON.stringify(snap, null, 2), "utf8");
-  return f;
+  const file = join(resolve(projectRoot, "artifacts"), "metrics.json");
+  return { store: new FileMetricsStore(file), close: async () => undefined };
 }

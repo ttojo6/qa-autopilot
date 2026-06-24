@@ -9,12 +9,11 @@ import { createAdapter as pytest } from "@qa/adapter-pytest";
 import { loadConfig } from "./config-loader.js";
 import { remediate } from "./remediate.js";
 import { persistProposals } from "./persist.js";
-import { loadMetrics, saveMetrics } from "./metrics-store.js";
+import { makeMetricsStore } from "./metrics-store.js";
 import {
   evaluateTriggers,
   deriveControls,
   countLanes,
-  addRouting,
   summarizeMetrics,
   DEFAULT_STOP_POLICY,
 } from "@qa/metrics";
@@ -54,23 +53,24 @@ function flagNum(argv: readonly string[], flag: string): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
 }
 
-/** 사람 피드백을 누계에 기록한다 — STOP 트리거(R1 override / R2 rollback)의 분자. */
-function cmdFeedback(configPath: string, argv: readonly string[]): void {
-  const abs = resolve(process.cwd(), configPath);
-  const projectRoot = dirname(abs);
-  const prior = loadMetrics(projectRoot);
-  const next = {
-    routing: prior.routing,
-    feedback: {
-      humanOverrides: prior.feedback.humanOverrides + flagNum(argv, "--override"),
-      merged: prior.feedback.merged + flagNum(argv, "--merged"),
-      rolledBack: prior.feedback.rolledBack + flagNum(argv, "--rolled-back"),
-    },
-  };
-  const file = saveMetrics(projectRoot, next);
-  console.log(
-    `feedback recorded → ${file}\n  overrides=${next.feedback.humanOverrides} merged=${next.feedback.merged} rolledBack=${next.feedback.rolledBack} (분류 누계 n=${next.routing.total})`
-  );
+/** 사람 피드백을 누계에 기록한다 — STOP 트리거(R1 override / R2 rollback)의 분자.
+ *  콘솔 UI 행동으로도 동일 누계에 기록되지만, 스크립트/수동 보정용으로 남겨둔다. */
+async function cmdFeedback(configPath: string, argv: readonly string[]): Promise<void> {
+  const projectRoot = dirname(resolve(process.cwd(), configPath));
+  const { store, close } = makeMetricsStore(projectRoot);
+  try {
+    await store.addFeedback({
+      humanOverrides: flagNum(argv, "--override"),
+      merged: flagNum(argv, "--merged"),
+      rolledBack: flagNum(argv, "--rolled-back"),
+    });
+    const s = await store.load();
+    console.log(
+      `feedback recorded\n  overrides=${s.feedback.humanOverrides} merged=${s.feedback.merged} rolledBack=${s.feedback.rolledBack} (분류 누계 n=${s.routing.total})`
+    );
+  } finally {
+    await close();
+  }
 }
 
 async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boolean): Promise<void> {
@@ -90,7 +90,8 @@ async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boole
   const result = await runCycle(config, deps);
 
   // STOP 트리거: 과거 누계 성과가 이번 사이클 자동화를 게이팅한다.
-  const prior = loadMetrics(projectRoot);
+  const metrics = makeMetricsStore(projectRoot);
+  const prior = await metrics.store.load();
   const triggers = evaluateTriggers(prior, DEFAULT_STOP_POLICY);
   const controls = deriveControls(triggers);
 
@@ -122,9 +123,10 @@ async function cmdRun(configPath: string, autoPr: boolean, failOnBlocking: boole
     disableAppSource: controls.disableAppSourceRemediation,
   });
 
-  // 누계 갱신: 이번 사이클 라우팅을 더해 저장(피드백은 별도 `qa feedback`로 누적).
-  const cumulative = { routing: addRouting(prior.routing, countLanes(verdicts)), feedback: prior.feedback };
-  saveMetrics(projectRoot, cumulative);
+  // 누계 갱신: 이번 사이클 라우팅을 더한다(피드백은 콘솔 UI 행동/`qa feedback`로 누적).
+  await metrics.store.addRouting(countLanes(verdicts));
+  const cumulative = await metrics.store.load();
+  await metrics.close();
   const mv = summarizeMetrics(cumulative);
   const persisted = await persistProposals(projectRoot, proposals);
   const byStatus: Record<string, number> = {};
@@ -166,7 +168,7 @@ async function main(): Promise<void> {
       await cmdRun(config, autoPr, failOnBlocking);
       break;
     case "feedback":
-      cmdFeedback(config, argv);
+      await cmdFeedback(config, argv);
       break;
     default:
       console.log(

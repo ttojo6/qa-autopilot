@@ -89,15 +89,20 @@ node apps/cli/dist/index.js run --config <path> --fail-on-blocking   # blocking>
 | R2 | rollback rate (병합 후 롤백 비율) | > 15% | `disableAppSourceRemediation` — 앱 소스 자동 수정 중단 |
 | R4 | quarantine 비율 | > 40% | `reviewFlakySignals` — flakySignals 재검토 |
 
-`minSamples`(기본 20)로 소표본 오발을 막는다. 사람 피드백은 `qa feedback`로 누적한다(트리거 분자):
+`minSamples`(기본 20)로 소표본 오발을 막는다. **누계는 CLI와 콘솔이 공유**한다 — `DATABASE_URL` 있으면 `metrics` 테이블, 없으면 파일(`QA_METRICS_FILE`).
+
+**피드백은 콘솔 UI 행동으로 자동 기록**된다(별도 명령 불필요):
+- 제안 상세의 **분류 이의(override)** 버튼 → R1 분자 +1
+- **롤백 보고(rollback)** 버튼 → R2 분자 +1
+- 승인이 정족수를 충족해 `approved`로 전이되면 **merged 자동 +1**(R2 분모)
+
+스크립트/수동 보정용 CLI 폴백:
 
 ```bash
-qa feedback --config <path> --override 1     # 사람이 AI 분류를 뒤집음 (R1)
-qa feedback --config <path> --merged 1        # remediation PR 병합됨 (R2 분모)
-qa feedback --config <path> --rolled-back 1   # 병합 후 롤백됨 (R2)
+qa feedback --config <path> [--override N] [--merged N] [--rolled-back N]
 ```
 
-`qa run` 출력의 `safety:` 줄과 `⚠ STOP` 항목으로 현재 발동 상태를 확인한다.
+`qa run` 출력의 `safety:`/`⚠ STOP` 줄과 콘솔 상단 **Safety 배너**로 발동 상태를 확인한다. (CLI 출력과 콘솔 배너의 읽기·평가 경로는 검증됨. 콘솔 버튼의 쓰기 경로는 Next Server Action이라 브라우저/E2E로 확인하며, 기록 함수 자체는 단위 테스트로 검증됨.)
 
 ---
 

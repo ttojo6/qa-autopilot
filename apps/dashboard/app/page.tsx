@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { evaluateApprovals } from "@qa/governance";
-import { listViews, getApprovals, backend } from "../lib/data";
+import { listViews, getApprovals, getSafety, backend } from "../lib/data";
 
 export const dynamic = "force-dynamic"; // 상태 변경을 매 요청 반영
 
+const pct = (n: number): string => `${(n * 100).toFixed(0)}%`;
+
 export default async function HomePage() {
   const views = await listViews();
+  const safety = await getSafety();
   const rows = await Promise.all(
     views.map(async (v) => {
       const approvals = await getApprovals(v.id);
@@ -18,6 +21,23 @@ export default async function HomePage() {
     <main>
       <h1>Governance Console</h1>
       <p className="sub">AI 수정 제안을 검토·승인한다. AI는 PR 생성까지만 — 병합은 사람이 한다.</p>
+
+      <div className="card">
+        <strong>Safety</strong>{" "}
+        <span className="muted" style={{ fontSize: "0.8rem" }}>
+          (n={safety.samples}) quarantine {pct(safety.metrics.quarantineRatio)} · override{" "}
+          {pct(safety.metrics.overrideRate)} · rollback {pct(safety.metrics.rollbackRate)}
+        </span>
+        {safety.triggers.length === 0 ? (
+          <span className="pass" style={{ marginLeft: 8 }}>✓ all automation enabled</span>
+        ) : (
+          <ul className="reasons">
+            {safety.triggers.map((t) => (
+              <li key={t.risk}>⚠ STOP {t.risk}: {t.message}</li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div className="card">
         <table>

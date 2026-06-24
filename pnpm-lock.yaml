@@ -53,6 +53,9 @@ importers:
       '@qa/governance':
         specifier: workspace:*
         version: link:../../packages/governance
+      '@qa/metrics':
+        specifier: workspace:*
+        version: link:../../packages/metrics
       '@qa/shared':
         specifier: workspace:*
         version: link:../../packages/shared

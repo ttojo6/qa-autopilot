@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getView, getApprovals } from "../../../lib/data";
 import { evaluateApprovals } from "@qa/governance";
-import { decide } from "../../actions";
+import { decide, disputeClassification, reportRollback } from "../../actions";
 import { DiffBlock } from "./diff";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +93,21 @@ export default async function ProposalPage({ params }: { params: Promise<{ id: s
         <p className="muted" style={{ fontSize: "0.78rem" }}>
           작성자(ai) 또는 ai/system 이름으로는 승인이 집계되지 않는다 (self-approve·봇승인 차단).
         </p>
+      </div>
+
+      <div className="card">
+        <h3 style={{ marginTop: 0 }}>피드백 (STOP 트리거 자동 누적)</h3>
+        <p className="muted" style={{ fontSize: "0.82rem" }}>
+          이 버튼은 메타 지표에 바로 기록되어 R1/R2 STOP 트리거 평가에 반영된다 — 별도 명령 불필요.
+        </p>
+        <form className="decide" action={disputeClassification}>
+          <input type="hidden" name="proposalId" value={proposal.id} />
+          <button type="submit">분류 이의 (override · R1)</button>
+        </form>
+        <form className="decide" action={reportRollback}>
+          <input type="hidden" name="proposalId" value={proposal.id} />
+          <button className="reject" type="submit">롤백 보고 (rollback · R2)</button>
+        </form>
       </div>
     </main>
   );
