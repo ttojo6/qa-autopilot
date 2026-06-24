@@ -6,3 +6,4 @@ export * from "./llm-generator.js";
 export * from "./defaults.js";
 export * from "./git-verifier.js";
 export * from "./gh-pr-port.js";
+export * from "./rollback-scan.js";

@@ -103,6 +103,12 @@ corepack pnpm@9.12.0 --filter @qa/dashboard run e2e
 - **롤백 보고(rollback)** 버튼 → R2 분자 +1
 - 승인이 정족수를 충족해 `approved`로 전이되면 **merged 자동 +1**(R2 분모)
 
+**롤백은 git 스캔으로도 무인 감지**된다 — `qa scan-rollbacks`가 `fix(test_only|app_source):` 커밋을 되돌린 revert를 찾아 R2 분자를 멱등 기록한다(ledger로 중복 방지). CI/cron에 걸면 사람 없이 R2가 작동한다.
+
+```bash
+qa scan-rollbacks --config <path>            # git revert → R2 rollback 무인 기록 (멱등)
+```
+
 스크립트/수동 보정용 CLI 폴백:
 
 ```bash

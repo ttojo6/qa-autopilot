@@ -10,6 +10,8 @@ import { loadConfig } from "./config-loader.js";
 import { remediate } from "./remediate.js";
 import { persistProposals } from "./persist.js";
 import { makeMetricsStore } from "./metrics-store.js";
+import { makeRevertLedger } from "./revert-ledger.js";
+import { CliGitLogReader, detectRemediationRollbacks } from "@qa/remediation";
 import {
   evaluateTriggers,
   deriveControls,
@@ -70,6 +72,35 @@ async function cmdFeedback(configPath: string, argv: readonly string[]): Promise
     );
   } finally {
     await close();
+  }
+}
+
+/**
+ * 롤백 자동 감지 — git 로그에서 remediation 커밋을 되돌린 revert를 찾아 R2 분자를 무인 기록한다.
+ * ledger로 중복 집계를 막는다(멱등). 콘솔 "롤백 보고" 버튼의 자동화 대체.
+ */
+async function cmdScanRollbacks(configPath: string): Promise<void> {
+  const projectRoot = dirname(resolve(process.cwd(), configPath));
+  const commits = await new CliGitLogReader(projectRoot).log(1000);
+  const rollbacks = detectRemediationRollbacks(commits);
+
+  const ledgerH = makeRevertLedger(projectRoot);
+  const metricsH = makeMetricsStore(projectRoot);
+  try {
+    const newly = await ledgerH.ledger.markSeen(rollbacks.map((r) => r.revertSha));
+    if (newly.length > 0) await metricsH.store.addFeedback({ rolledBack: newly.length });
+    const s = await metricsH.store.load();
+    console.log(
+      [
+        `scan-rollbacks: ${commits.length} commits scanned`,
+        `  remediation reverts found: ${rollbacks.length}  (new this scan: ${newly.length})`,
+        ...rollbacks.slice(0, 10).map((r) => `    ✗ ${r.revertSha.slice(0, 8)} reverts "${r.revertedSubject}"`),
+        `  rolledBack 누계: ${s.feedback.rolledBack} / merged: ${s.feedback.merged}`,
+      ].join("\n")
+    );
+  } finally {
+    await ledgerH.close();
+    await metricsH.close();
   }
 }
 
@@ -170,6 +201,9 @@ async function main(): Promise<void> {
     case "feedback":
       await cmdFeedback(config, argv);
       break;
+    case "scan-rollbacks":
+      await cmdScanRollbacks(config);
+      break;
     default:
       console.log(
         [
@@ -180,6 +214,8 @@ async function main(): Promise<void> {
           "    실행→Triage→Remediation 한 사이클. --fail-on-blocking 시 release-blocking 있으면 exit 2.",
           "  qa feedback --config <path> [--override N] [--merged N] [--rolled-back N]",
           "    사람 피드백을 누계에 기록 → STOP 트리거(R1 override / R2 rollback) 평가에 반영.",
+          "  qa scan-rollbacks --config <path>",
+          "    git 로그에서 remediation 커밋을 되돌린 revert를 찾아 R2 rollback을 무인 기록(멱등).",
           "",
         ].join("\n")
       );
