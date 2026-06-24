@@ -53,3 +53,19 @@ jobs:
         run: pnpm --filter @qa/governance run db:migrate
       - name: Governance tests incl. live pg round-trip
         run: pnpm --filter @qa/governance run test
+
+  e2e-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: corepack prepare pnpm@9.12.0 --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r run build
+      - name: Install Chromium
+        run: pnpm --filter @qa/dashboard run e2e:install
+      - name: Console self-E2E (Server Action write paths)
+        run: pnpm --filter @qa/dashboard run e2e

@@ -1,0 +1,32 @@
+[
+  {
+    "signature": "assertion|login.spec.ts|count mismatch",
+    "scope": "test_only",
+    "failureClass": "TEST_BUG",
+    "draft": {
+      "diff": "--- a/login.spec.ts\n+++ b/login.spec.ts\n@@\n-  expect(n).toBe(3)\n+  expect(n).toBe(4)\n",
+      "summary": "E2E: update stale login assertion",
+      "rationale": "stale assertion",
+      "affectedFiles": ["web/tests/login.spec.ts"],
+      "source": "claude:claude-opus-4-8"
+    },
+    "regressionProof": { "status": "passed", "evidence": "re-ran 1 case, passed" },
+    "gate": { "scope": "test_only", "autoPrAllowed": true, "requiredApprovals": 1, "codeownersRequired": false, "blockedReasons": [] },
+    "status": "needs_human_pr"
+  },
+  {
+    "signature": "exception|invoice.ts|NaN total",
+    "scope": "app_source",
+    "failureClass": "PRODUCT_BUG",
+    "draft": {
+      "diff": "--- a/invoice.ts\n+++ b/invoice.ts\n@@\n-  items.reduce(f)\n+  items.reduce(f, 0)\n",
+      "summary": "E2E: fix NaN invoice total",
+      "rationale": "missing reduce seed",
+      "affectedFiles": ["api/src/invoice.ts"],
+      "source": "claude:claude-opus-4-8"
+    },
+    "regressionProof": { "status": "passed", "evidence": "re-ran 2 cases, passed" },
+    "gate": { "scope": "app_source", "autoPrAllowed": false, "requiredApprovals": 2, "codeownersRequired": true, "blockedReasons": [] },
+    "status": "needs_human_pr"
+  }
+]

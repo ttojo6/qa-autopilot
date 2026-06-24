@@ -78,6 +78,13 @@ node apps/cli/dist/index.js run --config <path> --fail-on-blocking   # blocking>
 `.github/workflows/ci.yml` 2개 잡:
 - **build-test** — 설치·빌드·전체 단위 테스트(pg 통합은 `DATABASE_URL` 없어 자동 skip) + ci-smoke 게이트 데모(exit 0).
 - **integration-postgres** — Postgres 서비스 + `db:migrate` + **라이브 pg 왕복 테스트**(upsert→봇승인 무시→정족수 충족→approved+감사). 로컬에선 skip, CI에서만 실행.
+- **e2e-dashboard** — Chromium 설치 + **콘솔 자기 E2E**(Playwright). Server Action 쓰기 경로(승인/분류 이의/롤백)를 실제 브라우저로 검증 — 제품이 스스로를 QA(dogfooding).
+
+```bash
+corepack pnpm@9.12.0 --filter @qa/dashboard run e2e:install   # Chromium (1회)
+corepack pnpm@9.12.0 -r run build
+corepack pnpm@9.12.0 --filter @qa/dashboard run e2e
+```
 
 ### 메타 지표 / STOP 트리거 (자동화 자가 제어)
 
@@ -102,7 +109,7 @@ node apps/cli/dist/index.js run --config <path> --fail-on-blocking   # blocking>
 qa feedback --config <path> [--override N] [--merged N] [--rolled-back N]
 ```
 
-`qa run` 출력의 `safety:`/`⚠ STOP` 줄과 콘솔 상단 **Safety 배너**로 발동 상태를 확인한다. (CLI 출력과 콘솔 배너의 읽기·평가 경로는 검증됨. 콘솔 버튼의 쓰기 경로는 Next Server Action이라 브라우저/E2E로 확인하며, 기록 함수 자체는 단위 테스트로 검증됨.)
+`qa run` 출력의 `safety:`/`⚠ STOP` 줄과 콘솔 상단 **Safety 배너**로 발동 상태를 확인한다. 콘솔 버튼의 **Server Action 쓰기 경로는 Playwright 자기 E2E로 검증**된다(분류 이의→R1, 롤백 보고→R2, 승인 self-approve 차단).
 
 ---
 
